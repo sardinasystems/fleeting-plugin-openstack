@@ -2,10 +2,13 @@ package fpoc
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
 
 	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/clustering/v1/actions"
+	"github.com/gophercloud/gophercloud/openstack/clustering/v1/clusters"
 	"github.com/gophercloud/gophercloud/openstack/clustering/v1/nodes"
 	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/hashicorp/go-hclog"
@@ -22,8 +25,8 @@ type InstanceGroup struct {
 	ClusterID         string `json:"cluster_id"`    // optional: cluster id
 	SshPrivateKeyFile string `json:"ssh_file"`      // required: ssh key path
 
-	size             int64
-	clusteringClient *gophercloud.ProviderClient
+	size             int
+	clusteringClient *gophercloud.ServiceClient
 	settings         provider.Settings
 	log              hclog.Logger
 }
@@ -39,22 +42,47 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 
 	cli, err := clientconfig.NewServiceClient("clustering", opts)
 	if err != nil {
-		log.Fatal(err)
+		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Senlin: %w", err)
 	}
 
+	cli.Microversion = "1.14"
 	g.clusteringClient = cli
+
+	var cluster *clusters.Cluster
+	if g.ClusterID != "" {
+		cluster, err = clusters.Get(cli, g.ClusterID).Extract()
+		if err != nil {
+			return provider.ProviderInfo{}, fmt.Errorf("Failed to get cluster by id: %w", err)
+		}
+	} else {
+		page, err := clusters.List(cli, clusters.ListOpts{Name: g.Name}).AllPages()
+		if err != nil {
+			return provider.ProviderInfo{}, fmt.Errorf("Failed to get cluster by name: %w", err)
+		}
+
+		cl, err := clusters.ExtractClusters(page)
+		if err != nil {
+			return provider.ProviderInfo{}, fmt.Errorf("Failed to get cluster extract error: %w", err)
+		}
+		if len(cl) != 1 {
+			return provider.ProviderInfo{}, fmt.Errorf("Found %d clusters with name %s. You should provide cluster_id", len(cl), g.Name)
+		}
+
+		cluster = &cl[0]
+		g.ClusterID = cluster.ID
+	}
 
 	pemBytes, err := os.ReadFile(g.SshPrivateKeyFile)
 	if err != nil {
-		log.Fatal(err)
+		return provider.ProviderInfo{}, fmt.Errorf("SSH Private key file required: %w", err)
 	}
 
 	g.settings = settings
-	g.log = log.With("name", g.Name, "cloud", g.Cloud)
+	g.log = log.With("name", g.Name, "cloud", g.Cloud, "cluster_name", cluster.Name, "cluster_id", cluster.ID)
 	g.settings.Key = pemBytes
 	g.size = 0
 
-	if _, err := g.getInstances(ctx, true); err != nil {
+	if _, err := g.getNodes(ctx, true); err != nil {
 		return provider.ProviderInfo{}, err
 	}
 
@@ -68,126 +96,92 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 }
 
 func (g *InstanceGroup) Update(ctx context.Context, update func(instance string, state provider.State)) error {
-	/*
-		instances, err := g.ycsdk.InstanceGroup().InstanceGroup().ListInstances(ctx,
-			&instancegroup.ListInstanceGroupInstancesRequest{
-				InstanceGroupId: g.InstanceGroupId,
-			})
-		for _, instance := range instances.Instances {
-			var state provider.State
-			switch instance.Status.String() {
-			case "PREPARING_RESOURCES", "CREATING_INSTANCE", "STARTING_INSTANCE":
-				state = provider.StateCreating
-			case "DELETING_INSTANCE", "STOPPING_INSTANCE", "DELETED":
-				state = provider.StateDeleting
-			case "RUNNING_ACTUAL":
-				state = provider.StateRunning
-			default:
-				g.logger.Warn("unknown instance status", "instance", instance.Name, "status", instance.Status.String())
-				continue
-			}
+	nodes_, err := g.getNodes(ctx, false)
+	if err != nil {
+		return err
+	}
 
-			update(instance.Id, state)
+	for _, node := range nodes_ {
+		state := provider.StateCreating
+
+		switch node.Status {
+		case "DELETING":
+			state = provider.StateDeleting
+
+		case "ACTIVE", "OPERATING":
+			state = provider.StateRunning
 		}
 
-		if err != nil {
-			return err
-		}
+		update(node.ID, state)
+	}
 
-	*/
 	return nil
 }
 
 func (g *InstanceGroup) Increase(ctx context.Context, delta int) (succeeded int, err error) {
-	/*
-		newSizeInstanceGroup := g.size + int64(delta)
-		increaseInstanceReq := instancegroup.UpdateInstanceGroupRequest{
-			InstanceGroupId: g.InstanceGroupId,
-			ScalePolicy:     &instancegroup.ScalePolicy{ScaleType: &instancegroup.ScalePolicy_FixedScale_{FixedScale: &instancegroup.ScalePolicy_FixedScale{Size: newSizeInstanceGroup}}},
-			UpdateMask:      &fieldmaskpb.FieldMask{Paths: []string{"scale_policy"}},
-		}
-		op, err := g.ycsdk.WrapOperation(g.ycsdk.InstanceGroup().InstanceGroup().Update(ctx, &increaseInstanceReq))
+	actionID, err := clusters.Resize(g.clusteringClient, g.ClusterID, clusters.ResizeOpts{
+		AdjustmentType: clusters.ChangeInCapacityAdjustment,
+		Number:         &delta,
+	}).Extract()
+	if err != nil {
+		return 0, fmt.Errorf("Failed to resize increase: %w", err)
+	}
 
-		if err != nil {
-			log.Fatal(err)
-			return 0, err
-		}
+	action, err := actions.Get(g.clusteringClient, actionID).Extract()
+	if err != nil {
+		return 0, fmt.Errorf("Failed to get resize action: %w", err)
+	}
 
-		err = op.Wait(ctx)
-		if err != nil {
-			log.Fatal(err)
-			return 0, err
-		}
+	g.log.Info("Increase", "delta", delta, "status", action.Status)
+	g.size += delta
 
-		g.size = newSizeInstanceGroup
-
-		return delta, nil
-	*/
-
-	return 0, nil
+	return delta, nil
 }
 
 func (g *InstanceGroup) Decrease(ctx context.Context, instances []string) (succeeded []string, err error) {
-	/*
-	   	instanceGroupDeleteReq := instancegroup.DeleteInstancesRequest{
-	   		InstanceGroupId:    g.InstanceGroupId,
-	   		ManagedInstanceIds: instances,
-	   	}
+	if len(instances) == 0 {
+		return nil, nil
+	}
 
-	   op, err := g.ycsdk.WrapOperation(g.ycsdk.InstanceGroup().InstanceGroup().DeleteInstances(ctx, &instanceGroupDeleteReq))
+	actionID, err := removeNodes(g.clusteringClient, g.ClusterID,
+		ExtRemoveNodesOpts{
+			Nodes:                instances,
+			DestroyAfterDeletion: true,
+		}).Extract()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to remove nodes: %w", err)
+	}
 
-	   	if err != nil {
-	   		log.Println(err)
-	   		return nil, err
-	   	}
+	action, err := actions.Get(g.clusteringClient, actionID).Extract()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get remove action: %w", err)
+	}
 
-	   err = op.Wait(ctx)
+	g.log.Info("Decrease", "instances", instances, "status", action.Status)
+	g.size -= len(instances)
 
-	   	if err != nil {
-	   		log.Println(err)
-	   		return nil, err
-	   	}
-
-	   g.size = g.size - int64(len(instances))
-	   return instances, err
-	*/
-	return nil, nil
+	return instances, err
 }
 
-func (g *InstanceGroup) getInstances(ctx context.Context, initial bool) ([]nodes.Node, error) {
-	/*
-		desc, err := g.client.DescribeAutoScalingGroups(ctx, &autoscaling.DescribeAutoScalingGroupsInput{
-			AutoScalingGroupNames: []string{g.Name},
-		})
-		if err != nil {
-			return nil, fmt.Errorf("describing autoscaling groups: %w", err)
-		}
-		if len(desc.AutoScalingGroups) != 1 {
-			return nil, fmt.Errorf("unexpected number of autoscaling groups returned: %v", len(desc.AutoScalingGroups))
-		}
+func (g *InstanceGroup) getNodes(ctx context.Context, initial bool) ([]nodes.Node, error) {
+	page, err := nodes.List(g.clusteringClient, nodes.ListOpts{ClusterID: g.ClusterID}).AllPages()
+	if err != nil {
+		return nil, fmt.Errorf("Node listing error: %w", err)
+	}
 
-		// detect out-of-sync capacity changes
-		group := desc.AutoScalingGroups[0]
-		capacity := group.DesiredCapacity
-		var size int
-		if capacity != nil {
-			size = int(*capacity)
-		}
+	nodes, err := nodes.ExtractNodes(page)
+	if err != nil {
+		return nil, fmt.Errorf("Node listing extract error: %w", err)
+	}
 
-		if initial {
-			if !aws.ToBool(group.NewInstancesProtectedFromScaleIn) {
-				g.log.Error("new instances are not protected from scale in and should be")
-			}
-		}
+	size := len(nodes)
 
-		if !initial && size != g.size {
-			g.log.Error("out-of-sync capacity", "expected", g.size, "actual", size)
-		}
-		g.size = size
+	if !initial && size != g.size {
+		g.log.Error("out-of-sync capacity", "expected", g.size, "actual", size)
+	}
+	g.size = size
 
-		return group.Instances, nil
-	*/
-	return nil, nil
+	return nodes, nil
 }
 
 func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceId string) (provider.ConnectInfo, error) {
