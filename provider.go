@@ -5,7 +5,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/gopercloud/gopercloud"
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/clustering/v1/nodes"
 	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/hashicorp/go-hclog"
 
@@ -22,7 +23,7 @@ type InstanceGroup struct {
 	SshPrivateKeyFile string `json:"ssh_file"`      // required: ssh key path
 
 	size             int64
-	clusteringClient *gopercloud.ProviderClient
+	clusteringClient *gophercloud.ProviderClient
 	settings         provider.Settings
 	log              hclog.Logger
 }
@@ -149,6 +150,42 @@ func (g *InstanceGroup) Decrease(ctx context.Context, instances []string) (succe
 
 	   g.size = g.size - int64(len(instances))
 	   return instances, err
+	*/
+	return nil, nil
+}
+
+func (g *InstanceGroup) getInstances(ctx context.Context, initial bool) ([]nodes.Node, error) {
+	/*
+		desc, err := g.client.DescribeAutoScalingGroups(ctx, &autoscaling.DescribeAutoScalingGroupsInput{
+			AutoScalingGroupNames: []string{g.Name},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("describing autoscaling groups: %w", err)
+		}
+		if len(desc.AutoScalingGroups) != 1 {
+			return nil, fmt.Errorf("unexpected number of autoscaling groups returned: %v", len(desc.AutoScalingGroups))
+		}
+
+		// detect out-of-sync capacity changes
+		group := desc.AutoScalingGroups[0]
+		capacity := group.DesiredCapacity
+		var size int
+		if capacity != nil {
+			size = int(*capacity)
+		}
+
+		if initial {
+			if !aws.ToBool(group.NewInstancesProtectedFromScaleIn) {
+				g.log.Error("new instances are not protected from scale in and should be")
+			}
+		}
+
+		if !initial && size != g.size {
+			g.log.Error("out-of-sync capacity", "expected", g.size, "actual", size)
+		}
+		g.size = size
+
+		return group.Instances, nil
 	*/
 	return nil, nil
 }
