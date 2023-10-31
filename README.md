@@ -1,2 +1,6 @@
-# fleeting-plugin-openstack
-GitLab fleeting plugin for OpenStack
+fleeting-plugin-openstack
+=========================
+
+GitLab fleeting plugin for OpenStack.
+
+**WIP**

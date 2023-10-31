@@ -1,0 +1,15 @@
+---
+type: os.nova.server
+version: 1.0
+properties:
+  name: runner
+  flavor: 5
+  image: "fedora-38"
+  # key_name: oskey
+  networks:
+    - network: external
+  metadata:
+    tags: gitlab-runner
+  user_data: |
+    #cloud-config
+    update_packages: true
