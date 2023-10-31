@@ -1,0 +1,44 @@
+builds:
+  -  # First Build
+    env:
+      - CGO_ENABLED=0
+    main: ./cmd/fleeting-plugin-openstack
+    ldflags: >-
+      -s -w
+      -X github.com/prometheus/common/version.Version={{.Version}}
+      -X github.com/prometheus/common/version.Revision={{.FullCommit}}
+      -X github.com/prometheus/common/version.Branch={{.Branch}}
+      -X github.com/prometheus/common/version.BuildUser=goreleaser@github-actions
+      -X github.com/prometheus/common/version.BuildDate={{time "20060102-15:04:05"}}
+
+    # Set the binary output location to bin/ so archive will comply with Sensu Go Asset structure
+    binary: bin/{{ .ProjectName }}
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - 386
+      - arm
+      - arm64
+    goarm:
+      - 5
+      - 6
+      - 7
+    targets:
+      - linux_386
+      - linux_amd64
+      - linux_arm_5
+      - linux_arm_6
+      - linux_arm_7
+      - linux_arm64
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_sha512-checksums.txt"
+  algorithm: sha512
+
+archives:
+  - id: tar
+    format: tar.gz
+    files:
+      - LICENSE
+      - README.md
