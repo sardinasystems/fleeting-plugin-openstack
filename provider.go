@@ -143,7 +143,7 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 func (g *InstanceGroup) Increase(ctx context.Context, delta int) (succeeded int, err error) {
 	actionID, err := clusters.Resize(g.clusteringClient, g.ClusterID, clusters.ResizeOpts{
 		AdjustmentType: clusters.ChangeInCapacityAdjustment,
-		Number:         &delta,
+		Number:         delta,
 	}).Extract()
 	if err != nil {
 		return 0, fmt.Errorf("Failed to resize increase: %w", err)
