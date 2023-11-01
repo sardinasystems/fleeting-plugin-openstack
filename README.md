@@ -38,3 +38,25 @@ openstack cluster policy create --spec-file etc/sample_affinity_policy.yaml runn
 openstack cluster create --profile runner-profile gitlab-runners
 openstack cluster policy attach --policy runner-aa-policy gitlab-runners
 ```
+
+Example runner config
+---------------------
+```
+[runners.autoscaler]
+plugin = "fleeting-plugin-openstack"
+capacity_per_instance = 1
+max_use_count = 1
+max_instances = 25
+
+[runners.autoscaler.plugin_config]
+  name             = "gitlab-runners"
+  cloud            = "mycloud"
+  ssh_file         = "/etc/gitlab-runner/id_rsa"
+
+[runners.autoscaler.connector_config]
+  username          = "fedora"
+
+[[runners.autoscaler.policy]]
+  idle_count = 4
+  idle_time = "15m0s"
+```
