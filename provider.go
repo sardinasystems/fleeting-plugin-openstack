@@ -84,7 +84,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		g.ClusterID = cluster.ID
 	}
 
-	pemBytes, err := os.ReadFile(g.SshPrivateKeyFile)
+	pemBytes, err := os.ReadFile(g.SSHPrivateKeyFile)
 	if err != nil {
 		return provider.ProviderInfo{}, fmt.Errorf("SSH Private key file required: %w", err)
 	}
