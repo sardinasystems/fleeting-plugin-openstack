@@ -62,12 +62,12 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 
 	var cluster *clusters.Cluster
 	if g.ClusterID != "" {
-		cluster, err = clusters.Get(cli, g.ClusterID).Extract()
+		cluster, err = clusters.Get(g.clusteringClient, g.ClusterID).Extract()
 		if err != nil {
 			return provider.ProviderInfo{}, fmt.Errorf("Failed to get cluster by id: %w", err)
 		}
 	} else {
-		page, err := clusters.List(cli, clusters.ListOpts{Name: g.Name}).AllPages()
+		page, err := clusters.List(g.clusteringClient, clusters.ListOpts{Name: g.Name}).AllPages()
 		if err != nil {
 			return provider.ProviderInfo{}, fmt.Errorf("Failed to get cluster by name: %w", err)
 		}
