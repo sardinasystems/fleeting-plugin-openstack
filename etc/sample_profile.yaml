@@ -1,6 +1,6 @@
 ---
 type: os.nova.server
-version: 1.0
+version: 1.2
 properties:
   name: runner
   flavor: 5
