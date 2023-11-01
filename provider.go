@@ -2,6 +2,7 @@ package fpoc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -10,6 +11,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/clustering/v1/actions"
 	"github.com/gophercloud/gophercloud/openstack/clustering/v1/clusters"
 	"github.com/gophercloud/gophercloud/openstack/clustering/v1/nodes"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/hashicorp/go-hclog"
 
@@ -23,10 +25,12 @@ type InstanceGroup struct {
 	CloudsConfig      string `json:"clouds_config"` // optional: path to clouds.yaml
 	Name              string `json:"name"`          // name of the group / cluster name
 	ClusterID         string `json:"cluster_id"`    // optional: cluster id
-	SshPrivateKeyFile string `json:"ssh_file"`      // required: ssh key path
+	SSHPrivateKeyFile string `json:"ssh_file"`      // required: ssh key path
+	SSHUser           string `json:"ssh_user"`      // required: ssh user to login
 
 	size             int
 	clusteringClient *gophercloud.ServiceClient
+	computeClient    *gophercloud.ServiceClient
 	settings         provider.Settings
 	log              hclog.Logger
 }
@@ -45,8 +49,16 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Senlin: %w", err)
 	}
 
-	cli.Microversion = "1.14"
+	cli.Microversion = "1.14" // antelope
 	g.clusteringClient = cli
+
+	cli, err = clientconfig.NewServiceClient("compute", opts)
+	if err != nil {
+		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Nova: %w", err)
+	}
+
+	cli.Microversion = "2.79" // train+
+	g.computeClient = cli
 
 	var cluster *clusters.Cluster
 	if g.ClusterID != "" {
@@ -87,16 +99,20 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	}
 
 	return provider.ProviderInfo{
-		ID:      path.Join("openstack", g.Cloud, g.Name),
-		MaxSize: 1000,
-		// Version:   Version.String(),
-		// BuildInfo: Version.BuildInfo(),
+		ID:        path.Join("openstack", g.Cloud, g.Name),
+		MaxSize:   1000,
+		Version:   Version,
+		BuildInfo: BuildInfo(),
 	}, nil
-
 }
 
 func (g *InstanceGroup) Update(ctx context.Context, update func(instance string, state provider.State)) error {
 	nodes_, err := g.getNodes(ctx, false)
+	if err != nil {
+		return err
+	}
+
+	servers_, err := g.getServers(ctx, nodes_)
 	if err != nil {
 		return err
 	}
@@ -110,6 +126,12 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 
 		case "ACTIVE", "OPERATING":
 			state = provider.StateRunning
+		}
+
+		srv, ok := servers_[node.PhysicalID]
+		if ok {
+			// TODO: srv.Status?
+			_ = srv
 		}
 
 		update(node.ID, state)
@@ -184,32 +206,72 @@ func (g *InstanceGroup) getNodes(ctx context.Context, initial bool) ([]nodes.Nod
 	return nodes, nil
 }
 
-func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceId string) (provider.ConnectInfo, error) {
-	/*
-		info := provider.ConnectInfo{ConnectorConfig: g.settings.ConnectorConfig}
+func (g *InstanceGroup) getServers(ctx context.Context, nodelist []nodes.Node) (map[string]*servers.Server, error) {
+	// Ideally i'd call server list with metadata.cluster_id=id, but we can't.
+	// So have to query each server
+	var reterr error
+	srvs := make(map[string]*servers.Server, len(nodelist))
 
-		instances, err := g.ycsdk.InstanceGroup().InstanceGroup().ListInstances(ctx,
-			&instancegroup.ListInstanceGroupInstancesRequest{
-				InstanceGroupId: g.InstanceGroupId,
-			})
+	for _, n := range nodelist {
+		srv, err := servers.Get(g.computeClient, n.PhysicalID).Extract()
 		if err != nil {
-			return provider.ConnectInfo{}, err
+			reterr = errors.Join(reterr, err)
+			g.log.Error("Failed to get server", "server_id", n.PhysicalID, "error", err)
+			continue
 		}
-		for _, instance := range instances.Instances {
-			if instance.Id == instanceId {
-				if instance.Status.String() != "RUNNING_ACTUAL" {
-					return provider.ConnectInfo{}, fmt.Errorf("instance status is not running (%s)", instance.Status.String())
-				}
-				ipAddress := instance.NetworkInterfaces[0].GetPrimaryV4Address()
+		srvs[srv.ID] = srv
+	}
 
-				info.InternalAddr = ipAddress.Address
-				info.ExternalAddr = ipAddress.OneToOneNat.GetAddress()
-			}
-		}
+	return srvs, reterr
+}
 
+func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (provider.ConnectInfo, error) {
+	node, err := nodes.Get(g.clusteringClient, instanceID).Extract()
+	if err != nil {
+		return provider.ConnectInfo{}, fmt.Errorf("Failed to get node %s: %w", instanceID, err)
+	}
+
+	srv, err := servers.Get(g.computeClient, node.PhysicalID).Extract()
+	if err != nil {
+		return provider.ConnectInfo{}, fmt.Errorf("Failed to get server %s: %w", node.PhysicalID, err)
+	}
+
+	if srv.Status != "ACTIVE" {
+		return provider.ConnectInfo{}, fmt.Errorf("instance status is not active: %s", srv.Status)
+	}
+
+	// TODO: get image metadata and get os_admin_user
+
+	info := provider.ConnectInfo{
+		ConnectorConfig: g.settings.ConnectorConfig,
+		InternalAddr:    srv.AccessIPv4,
+		ExternalAddr:    srv.AccessIPv4,
+	}
+
+	// TODO: get from image meta
+	info.OS = "linux"
+	info.Arch = "amd64"
+	if info.Username == "" {
+		info.Username = g.SSHUser
+	}
+
+	if info.UseStaticCredentials {
 		return info, nil
-	*/
-	return nil, nil
+	}
+
+	if info.Protocol == "" {
+		info.Protocol = provider.ProtocolSSH
+	}
+
+	switch info.Protocol {
+	case provider.ProtocolSSH:
+		err = g.ssh(ctx, &info)
+
+	case provider.ProtocolWinRM:
+		err = fmt.Errorf("winrm not supported")
+	}
+
+	return info, nil
 }
 
 func (g *InstanceGroup) Shutdown(ctx context.Context) error {
