@@ -1,3 +1,4 @@
+# See also: https://docs.openstack.org/senlin/latest/user/profile_types/nova.html#ref-nova-profile
 ---
 type: os.nova.server
 version: 1.2

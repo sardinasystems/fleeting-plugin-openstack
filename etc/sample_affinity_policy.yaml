@@ -1,3 +1,4 @@
+# See also: https://docs.openstack.org/senlin/latest/user/policy_types/affinity.html
 ---
 type: senlin.policy.affinity
 version: 1.0
