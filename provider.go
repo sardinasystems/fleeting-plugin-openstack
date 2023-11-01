@@ -270,6 +270,9 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 	case provider.ProtocolWinRM:
 		err = fmt.Errorf("winrm not supported")
 	}
+	if err != nil {
+		return provider.ConnectInfo{}, err
+	}
 
 	return info, nil
 }
