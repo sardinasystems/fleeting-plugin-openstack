@@ -223,27 +223,30 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 		return provider.ConnectInfo{}, fmt.Errorf("Server not found %s: %w", node.PhysicalID, os.ErrNotExist)
 	}
 
-	// g.log.Info("srv", "srv", srv)
+	// g.log.Debug("Server info", "srv", srv)
 	if srv.Status != "ACTIVE" {
 		return provider.ConnectInfo{}, fmt.Errorf("instance status is not active: %s", srv.Status)
 	}
 
 	ipAddr := srv.AccessIPv4
 	if ipAddr == "" {
-		addrs, err := extractAddresses(srv)
+		netAddrs, err := extractAddresses(srv)
 		if err != nil {
 			return provider.ConnectInfo{}, err
 		}
 
 		// TODO: detect internal (tenant) and external networks
-		for net, addr := range addrs {
-			ipAddr = addr.Address
-			g.log.Debug("Use address", "network", net, "ip_address", ipAddr)
+		for net, addrs := range netAddrs {
+			for _, addr := range addrs {
+				ipAddr = addr.Address
+				g.log.Debug("Use address", "network", net, "ip_address", ipAddr)
+			}
 		}
 	}
 
 	info := provider.ConnectInfo{
 		ConnectorConfig: g.settings.ConnectorConfig,
+		ID:              instanceID,
 		InternalAddr:    ipAddr,
 		ExternalAddr:    ipAddr,
 	}
@@ -252,6 +255,9 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 	// TODO: get from image meta
 	info.OS = "linux"
 	info.Arch = "amd64"
+	info.Protocol = provider.ProtocolSSH
+
+	// g.log.Debug("Info", "info", info)
 
 	return info, nil
 }

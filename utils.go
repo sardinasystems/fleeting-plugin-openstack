@@ -42,24 +42,31 @@ type Address struct {
 	Type    string `json:"OS-EXT-IPS:type,omitempty"`
 }
 
-func extractAddresses(srv *servers.Server) (map[string]Address, error) {
-	ret := make(map[string]Address, len(srv.Addresses))
+func extractAddresses(srv *servers.Server) (map[string][]Address, error) {
+	ret := make(map[string][]Address, len(srv.Addresses))
 
-	for k, iv := range srv.Addresses {
-		var out Address
+	for net, isv := range srv.Addresses {
+		ism := isv.([]interface{})
+		items := make([]Address, 0, len(ism))
 
-		cfg := &mapstructure.DecoderConfig{
-			Metadata: nil,
-			Result:   &out,
-			TagName:  "json",
+		for _, iv := range ism {
+			var out Address
+
+			cfg := &mapstructure.DecoderConfig{
+				Metadata: nil,
+				Result:   &out,
+				TagName:  "json",
+			}
+			decoder, _ := mapstructure.NewDecoder(cfg)
+			err := decoder.Decode(iv)
+			if err != nil {
+				return nil, err
+			}
+
+			items = append(items, out)
 		}
-		decoder, _ := mapstructure.NewDecoder(cfg)
-		err := decoder.Decode(iv)
-		if err != nil {
-			return nil, err
-		}
 
-		ret[k] = out
+		ret[net] = items
 	}
 
 	return ret, nil
