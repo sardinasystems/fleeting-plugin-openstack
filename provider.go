@@ -223,20 +223,32 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 		return provider.ConnectInfo{}, fmt.Errorf("Server not found %s: %w", node.PhysicalID, os.ErrNotExist)
 	}
 
+	// g.log.Info("srv", "srv", srv)
 	if srv.Status != "ACTIVE" {
 		return provider.ConnectInfo{}, fmt.Errorf("instance status is not active: %s", srv.Status)
 	}
 
-	// TODO: get image metadata and get os_admin_user
+	ipAddr := srv.AccessIPv4
+	if ipAddr == "" {
+		addrs, err := extractAddresses(srv)
+		if err != nil {
+			return provider.ConnectInfo{}, err
+		}
 
-	g.log.Info("srv", "srv", srv)
+		// TODO: detect internal (tenant) and external networks
+		for net, addr := range addrs {
+			ipAddr = addr.Address
+			g.log.Debug("Use address", "network", net, "ip_address", ipAddr)
+		}
+	}
 
 	info := provider.ConnectInfo{
 		ConnectorConfig: g.settings.ConnectorConfig,
-		InternalAddr:    srv.AccessIPv4,
-		ExternalAddr:    srv.AccessIPv4,
+		InternalAddr:    ipAddr,
+		ExternalAddr:    ipAddr,
 	}
 
+	// TODO: get image metadata and get os_admin_user
 	// TODO: get from image meta
 	info.OS = "linux"
 	info.Arch = "amd64"
