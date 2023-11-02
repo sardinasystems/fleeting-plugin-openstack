@@ -21,12 +21,10 @@ import (
 var _ provider.InstanceGroup = (*InstanceGroup)(nil)
 
 type InstanceGroup struct {
-	Cloud             string `json:"cloud"`         // cloud to use
-	CloudsConfig      string `json:"clouds_config"` // optional: path to clouds.yaml
-	Name              string `json:"name"`          // name of the group / cluster name
-	ClusterID         string `json:"cluster_id"`    // optional: cluster id
-	SSHPrivateKeyFile string `json:"ssh_file"`      // required: ssh key path
-	SSHUser           string `json:"ssh_user"`      // required: ssh user to login
+	Cloud        string `json:"cloud"`         // cloud to use
+	CloudsConfig string `json:"clouds_config"` // optional: path to clouds.yaml
+	Name         string `json:"name"`          // name of the cluster
+	ClusterID    string `json:"cluster_id"`    // optional: cluster id
 
 	size             int
 	clusteringClient *gophercloud.ServiceClient
@@ -84,14 +82,12 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		g.ClusterID = cluster.ID
 	}
 
-	pemBytes, err := os.ReadFile(g.SSHPrivateKeyFile)
-	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("SSH Private key file required: %w", err)
+	if !settings.ConnectorConfig.UseStaticCredentials {
+		return provider.ProviderInfo{}, fmt.Errorf("Only static credentials supported")
 	}
 
 	g.settings = settings
 	g.log = log.With("name", g.Name, "cloud", g.Cloud, "cluster_name", cluster.Name, "cluster_id", cluster.ID)
-	g.settings.Key = pemBytes
 	g.size = 0
 
 	if _, err := g.getNodes(ctx, true); err != nil {
@@ -112,12 +108,14 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 		return err
 	}
 
-	servers_, err := g.getServers(ctx, nodes_)
-	if err != nil {
-		return err
-	}
-
+	var reterr error
 	for _, node := range nodes_ {
+		srv, err := g.getServer(ctx, node.PhysicalID)
+		if err != nil {
+			reterr = errors.Join(reterr, err)
+			continue
+		}
+
 		state := provider.StateCreating
 
 		switch node.Status {
@@ -125,13 +123,9 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 			state = provider.StateDeleting
 
 		case "ACTIVE", "OPERATING":
-			state = provider.StateRunning
-		}
-
-		srv, ok := servers_[node.PhysicalID]
-		if ok {
-			// TODO: srv.Status?
-			_ = srv
+			if srv != nil {
+				state = provider.StateRunning
+			}
 		}
 
 		update(node.ID, state)
@@ -206,23 +200,13 @@ func (g *InstanceGroup) getNodes(ctx context.Context, initial bool) ([]nodes.Nod
 	return nodes, nil
 }
 
-func (g *InstanceGroup) getServers(ctx context.Context, nodelist []nodes.Node) (map[string]*servers.Server, error) {
-	// Ideally i'd call server list with metadata.cluster_id=id, but we can't.
-	// So have to query each server
-	var reterr error
-	srvs := make(map[string]*servers.Server, len(nodelist))
-
-	for _, n := range nodelist {
-		srv, err := servers.Get(g.computeClient, n.PhysicalID).Extract()
-		if err != nil {
-			reterr = errors.Join(reterr, err)
-			g.log.Error("Failed to get server", "server_id", n.PhysicalID, "error", err)
-			continue
-		}
-		srvs[srv.ID] = srv
+func (g *InstanceGroup) getServer(ctx context.Context, id string) (*servers.Server, error) {
+	srv, err := servers.Get(g.computeClient, id).Extract()
+	if errors.Is(err, &gophercloud.ErrResourceNotFound{}) {
+		return nil, nil
 	}
 
-	return srvs, reterr
+	return srv, err
 }
 
 func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (provider.ConnectInfo, error) {
@@ -231,9 +215,12 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 		return provider.ConnectInfo{}, fmt.Errorf("Failed to get node %s: %w", instanceID, err)
 	}
 
-	srv, err := servers.Get(g.computeClient, node.PhysicalID).Extract()
+	srv, err := g.getServer(ctx, node.PhysicalID)
 	if err != nil {
 		return provider.ConnectInfo{}, fmt.Errorf("Failed to get server %s: %w", node.PhysicalID, err)
+	}
+	if srv == nil {
+		return provider.ConnectInfo{}, fmt.Errorf("Server not found %s: %w", node.PhysicalID, os.ErrNotExist)
 	}
 
 	if srv.Status != "ACTIVE" {
@@ -241,6 +228,8 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 	}
 
 	// TODO: get image metadata and get os_admin_user
+
+	g.log.Info("srv", "srv", srv)
 
 	info := provider.ConnectInfo{
 		ConnectorConfig: g.settings.ConnectorConfig,
@@ -251,28 +240,6 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 	// TODO: get from image meta
 	info.OS = "linux"
 	info.Arch = "amd64"
-	if info.Username == "" {
-		info.Username = g.SSHUser
-	}
-
-	if info.UseStaticCredentials {
-		return info, nil
-	}
-
-	if info.Protocol == "" {
-		info.Protocol = provider.ProtocolSSH
-	}
-
-	switch info.Protocol {
-	case provider.ProtocolSSH:
-		err = g.ssh(ctx, &info)
-
-	case provider.ProtocolWinRM:
-		err = fmt.Errorf("winrm not supported")
-	}
-	if err != nil {
-		return provider.ConnectInfo{}, err
-	}
 
 	return info, nil
 }

@@ -5,11 +5,11 @@ builds:
     main: ./cmd/fleeting-plugin-openstack
     ldflags: >-
       -s -w
-      -X github.com/prometheus/common/version.Version={{.Version}}
-      -X github.com/prometheus/common/version.Revision={{.FullCommit}}
-      -X github.com/prometheus/common/version.Branch={{.Branch}}
-      -X github.com/prometheus/common/version.BuildUser=goreleaser@github-actions
-      -X github.com/prometheus/common/version.BuildDate={{time "20060102-15:04:05"}}
+      -X github.com/sardinasystems/fleeting-plugin-openstack.Version={{.Version}}
+      -X github.com/sardinasystems/fleeting-plugin-openstack.Revision={{.FullCommit}}
+      -X github.com/sardinasystems/fleeting-plugin-openstack.Branch={{.Branch}}
+      -X github.com/sardinasystems/fleeting-plugin-openstack.BuildUser=goreleaser@github-actions
+      -X github.com/sardinasystems/fleeting-plugin-openstack.BuildDate={{time "20060102-15:04:05"}}
 
     # Set the binary output location to bin/ so archive will comply with Sensu Go Asset structure
     binary: bin/{{ .ProjectName }}
