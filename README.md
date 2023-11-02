@@ -72,3 +72,10 @@ ERROR: Failed to remove network for build           error=networksManager is und
 WARNING: Preparation failed: error during connect: Get "http://internel.tunnel.invalid/v1.24/info": dialing environment connection: ssh: rejected: connect failed (open failed) (docker.go:826:0s)  job=332687 project=179 runner=ksN2v_jPn
 Will be retried in 3s ...                           job=332687 project=179 runner=ksN2v_jPn
 ```
+
+While i can do a `ssh -i /etc/gitlab-runner/id_rsa fedora@10.0.42.231` without any problem.
+
+```
+# gitlab-runner version
+Runtime platform                                    arch=amd64 os=linux pid=1751 revision=853330f9 version=16.5.0
+```
