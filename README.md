@@ -59,3 +59,16 @@ max_instances = 25
   idle_count = 4
   idle_time = "15m0s"
 ```
+
+Not working yet
+---------------
+```
+Preparing instance...                               job=332687 project=179 runner=ksN2v_jPn
+Dialing instance                                    external-address=10.0.42.231 instance-id=08de3734-bd6c-4e9e-bec2-70ebbc38fa22 internal-address=10.0.42.231 job=332687 project=179 runner=ksN2v_jPn use-external-address=true
+Dialing instance 08de3734-bd6c-4e9e-bec2-70ebbc38fa22...  job=332687 project=179 runner=ksN2v_jPn
+Instance 08de3734-bd6c-4e9e-bec2-70ebbc38fa22 connected  job=332687 project=179 runner=ksN2v_jPn
+Volumes manager is empty, skipping volumes cleanup  job=332687 project=179 runner=ksN2v_jPn
+ERROR: Failed to remove network for build           error=networksManager is undefined job=332687 network= project=179 runner=ksN2v_jPn
+WARNING: Preparation failed: error during connect: Get "http://internel.tunnel.invalid/v1.24/info": dialing environment connection: ssh: rejected: connect failed (open failed) (docker.go:826:0s)  job=332687 project=179 runner=ksN2v_jPn
+Will be retried in 3s ...                           job=332687 project=179 runner=ksN2v_jPn
+```
