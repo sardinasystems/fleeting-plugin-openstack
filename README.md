@@ -3,6 +3,7 @@ fleeting-plugin-openstack
 
 GitLab fleeting plugin for OpenStack.
 
+**WIP**
 
 Plugin Configuration
 --------------------
@@ -15,8 +16,6 @@ The following parameters are supported:
 | `clouds_config` | string | Optional. Path to clouds.yaml |
 | `name`                | string | Name of the Auto Scaling Group |
 | `cluster_id` | string | Optional. UUID of the Senlin cluster. Overrides search by name. |
-| `ssh_file` | string | Required. Private key of the ssh keypair given in senlin profile. |
-| `ssh_user` | string | Optional. Set instance ssh username. |
 
 ### Default connector config
 
@@ -24,8 +23,8 @@ The following parameters are supported:
 |--------------------------|----------|
 | `os`                     | `linux`  |
 | `protocol`               | `ssh` |
-| `username`               | `ssh_user` |
-| `use_static_credentials` | `false`  |
+| `username`               | `unset` |
+| `use_static_credentials` | `true`  |
 
 Cluster setup
 -------------
@@ -51,10 +50,10 @@ max_instances = 25
 [runners.autoscaler.plugin_config]
   name             = "gitlab-runners"
   cloud            = "mycloud"
-  ssh_file         = "/etc/gitlab-runner/id_rsa"
 
 [runners.autoscaler.connector_config]
   username          = "fedora"
+  key_file          = "/etc/gitlab-runner/id_rsa"
 
 [[runners.autoscaler.policy]]
   idle_count = 4
