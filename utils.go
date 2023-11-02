@@ -3,7 +3,7 @@ package fpoc
 import (
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/clustering/v1/clusters"
-	"github.com/jaegertracing/jaeger/cmd/agent/app/servers"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"github.com/mitchellh/mapstructure"
 )
 
