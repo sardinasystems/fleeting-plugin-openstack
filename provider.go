@@ -273,7 +273,7 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 	info.Arch = "amd64"
 	info.Protocol = provider.ProtocolSSH
 
-	g.log.Debug("Info", "info", info)
+	// g.log.Debug("Info", "info", info)
 
 	inp := bytes.NewBuffer(nil)
 	combinedOut := bytes.NewBuffer(nil)
