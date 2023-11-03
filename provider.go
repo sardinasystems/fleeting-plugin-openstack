@@ -1,11 +1,13 @@
 package fpoc
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path"
+	"time"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/clustering/v1/actions"
@@ -15,6 +17,7 @@ import (
 	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/hashicorp/go-hclog"
 
+	"gitlab.com/gitlab-org/fleeting/fleeting/connector"
 	"gitlab.com/gitlab-org/fleeting/fleeting/provider"
 )
 
@@ -25,6 +28,8 @@ type InstanceGroup struct {
 	CloudsConfig string `json:"clouds_config"` // optional: path to clouds.yaml
 	Name         string `json:"name"`          // name of the cluster
 	ClusterID    string `json:"cluster_id"`    // optional: cluster id
+	BootTimeS    string `json:"boot_time"`     // optional: wait some time before report machine as available
+	BootTime     time.Duration
 
 	size             int
 	clusteringClient *gophercloud.ServiceClient
@@ -86,6 +91,13 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		return provider.ProviderInfo{}, fmt.Errorf("Only static credentials supported")
 	}
 
+	if g.BootTimeS != "" {
+		g.BootTime, err = time.ParseDuration(g.BootTimeS)
+		if err != nil {
+			return provider.ProviderInfo{}, fmt.Errorf("Failed to parse boot_time: %w", err)
+		}
+	}
+
 	g.settings = settings
 	g.log = log.With("name", g.Name, "cloud", g.Cloud, "cluster_name", cluster.Name, "cluster_id", cluster.ID)
 	g.size = 0
@@ -124,7 +136,11 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 
 		case "ACTIVE", "OPERATING":
 			if srv != nil {
-				state = provider.StateRunning
+				if srv.Created.Add(g.BootTime).Before(time.Now()) {
+					state = provider.StateRunning
+				} else {
+					g.log.Debug("Instance boot time not passed yet", "server_id", srv.ID, "created", srv.Created, "boot_time", g.BootTime)
+				}
 			}
 		}
 
@@ -257,7 +273,27 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 	info.Arch = "amd64"
 	info.Protocol = provider.ProtocolSSH
 
-	// g.log.Debug("Info", "info", info)
+	g.log.Debug("Info", "info", info)
+
+	inp := bytes.NewBuffer(nil)
+	combinedOut := bytes.NewBuffer(nil)
+
+	ropts := connector.ConnectorOptions{
+		DialOptions: connector.DialOptions{
+			// UseExternalAddr: true,
+		},
+		RunOptions: connector.RunOptions{
+			Command: `echo "ok"`,
+			Stdin:   inp,
+			Stdout:  combinedOut,
+			Stderr:  combinedOut,
+		},
+	}
+	err = connector.Run(ctx, info, ropts)
+	if err != nil {
+		return provider.ConnectInfo{}, fmt.Errorf("Failed to test ssh: %w", err)
+	}
+	g.log.Debug("SSH test result", "out", combinedOut.String())
 
 	return info, nil
 }
