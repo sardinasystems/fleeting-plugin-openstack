@@ -137,9 +137,23 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 		case "ACTIVE", "OPERATING":
 			if srv != nil {
 				if srv.Created.Add(g.BootTime).Before(time.Now()) {
+					// treat all nodes running long enough as Running
 					state = provider.StateRunning
 				} else {
-					g.log.Debug("Instance boot time not passed yet", "server_id", srv.ID, "created", srv.Created, "boot_time", g.BootTime)
+					log, err := servers.ShowConsoleOutput(g.computeClient, srv.ID, servers.ShowConsoleOutputOpts{
+						Length: 100,
+					}).Extract()
+					if err != nil {
+						reterr = errors.Join(reterr, err)
+						continue
+					}
+
+					if IsCloudInitFinished(log) {
+						g.log.Debug("Instance cloud-init finished", "server_id", srv.ID, "created", srv.Created)
+						state = provider.StateRunning
+					} else {
+						g.log.Debug("Instance boot time not passed and cloud-init not finished", "server_id", srv.ID, "created", srv.Created, "boot_time", g.BootTime)
+					}
 				}
 			}
 		}
@@ -147,7 +161,7 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 		update(node.ID, state)
 	}
 
-	return nil
+	return reterr
 }
 
 func (g *InstanceGroup) Increase(ctx context.Context, delta int) (succeeded int, err error) {
