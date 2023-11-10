@@ -1,6 +1,9 @@
 package fpoc
 
 import (
+	"regexp"
+	"strings"
+
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/clustering/v1/clusters"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
@@ -70,4 +73,17 @@ func extractAddresses(srv *servers.Server) (map[string][]Address, error) {
 	}
 
 	return ret, nil
+}
+
+var initFinishedRe = regexp.MustCompile(`^.*Cloud-init\ v\.\ \d+\.\d+\.\d+\ finished\ at.*$`)
+
+func IsCloudInitFinished(log string) bool {
+	lines := strings.Split(log, "\n")
+
+	for _, line := range lines {
+		if initFinishedRe.MatchString(line) {
+			return true
+		}
+	}
+	return false
 }
