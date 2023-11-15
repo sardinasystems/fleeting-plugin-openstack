@@ -45,6 +45,9 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 
 	opts := &clientconfig.ClientOpts{
 		Cloud: g.Cloud,
+		AuthInfo: &clientconfig.AuthInfo{
+			AllowReauth: true,
+		},
 	}
 
 	cli, err := clientconfig.NewServiceClient("clustering", opts)
