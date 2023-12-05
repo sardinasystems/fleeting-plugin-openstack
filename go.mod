@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/gophercloud/gophercloud v1.8.0
 	github.com/gophercloud/utils v0.0.0-20231010081019-80377eca5d56
-	github.com/hashicorp/go-hclog v1.5.0
+	github.com/hashicorp/go-hclog v1.6.1
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
 	github.com/stretchr/testify v1.8.4
 	gitlab.com/gitlab-org/fleeting/fleeting v0.0.0-20231130083954-bc069a05f851
