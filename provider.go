@@ -10,32 +10,31 @@ import (
 	"time"
 
 	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/clustering/v1/actions"
-	"github.com/gophercloud/gophercloud/openstack/clustering/v1/clusters"
-	"github.com/gophercloud/gophercloud/openstack/clustering/v1/nodes"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/hashicorp/go-hclog"
+	"github.com/jinzhu/copier"
 
 	"gitlab.com/gitlab-org/fleeting/fleeting/connector"
 	"gitlab.com/gitlab-org/fleeting/fleeting/provider"
 )
 
+const MetadataKey = "fleeting-cluster"
+
 var _ provider.InstanceGroup = (*InstanceGroup)(nil)
 
 type InstanceGroup struct {
-	Cloud        string `json:"cloud"`         // cloud to use
-	CloudsConfig string `json:"clouds_config"` // optional: path to clouds.yaml
-	Name         string `json:"name"`          // name of the cluster
-	ClusterID    string `json:"cluster_id"`    // optional: cluster id
-	BootTimeS    string `json:"boot_time"`     // optional: wait some time before report machine as available
+	Cloud        string        `json:"cloud"`         // cloud to use
+	CloudsConfig string        `json:"clouds_config"` // optional: path to clouds.yaml
+	Name         string        `json:"name"`          // name of the cluster
+	ServerSpec   ExtCreateOpts `json:"server_spec"`   // instance creation spec
+	BootTimeS    string        `json:"boot_time"`     // optional: wait some time before report machine as available
 	BootTime     time.Duration
 
-	size             int
-	clusteringClient *gophercloud.ServiceClient
-	computeClient    *gophercloud.ServiceClient
-	settings         provider.Settings
-	log              hclog.Logger
+	size          int
+	computeClient *gophercloud.ServiceClient
+	settings      provider.Settings
+	log           hclog.Logger
 }
 
 func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings provider.Settings) (provider.ProviderInfo, error) {
@@ -50,45 +49,13 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		},
 	}
 
-	cli, err := clientconfig.NewServiceClient("clustering", opts)
-	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Senlin: %w", err)
-	}
-
-	cli.Microversion = "1.14" // antelope
-	g.clusteringClient = cli
-
-	cli, err = clientconfig.NewServiceClient("compute", opts)
+	cli, err := clientconfig.NewServiceClient("compute", opts)
 	if err != nil {
 		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Nova: %w", err)
 	}
 
 	cli.Microversion = "2.79" // train+
 	g.computeClient = cli
-
-	var cluster *clusters.Cluster
-	if g.ClusterID != "" {
-		cluster, err = clusters.Get(g.clusteringClient, g.ClusterID).Extract()
-		if err != nil {
-			return provider.ProviderInfo{}, fmt.Errorf("Failed to get cluster by id: %w", err)
-		}
-	} else {
-		page, err := clusters.List(g.clusteringClient, clusters.ListOpts{Name: g.Name}).AllPages()
-		if err != nil {
-			return provider.ProviderInfo{}, fmt.Errorf("Failed to get cluster by name: %w", err)
-		}
-
-		cl, err := clusters.ExtractClusters(page)
-		if err != nil {
-			return provider.ProviderInfo{}, fmt.Errorf("Failed to get cluster extract error: %w", err)
-		}
-		if len(cl) != 1 {
-			return provider.ProviderInfo{}, fmt.Errorf("Found %d clusters with name %s. You should provide cluster_id", len(cl), g.Name)
-		}
-
-		cluster = &cl[0]
-		g.ClusterID = cluster.ID
-	}
 
 	if !settings.ConnectorConfig.UseStaticCredentials {
 		return provider.ProviderInfo{}, fmt.Errorf("Only static credentials supported")
@@ -101,11 +68,16 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		}
 	}
 
+	_, err = g.ServerSpec.ToServerCreateMap()
+	if err != nil {
+		return provider.ProviderInfo{}, fmt.Errorf("Failed to check server_spec: %w", err)
+	}
+
 	g.settings = settings
-	g.log = log.With("name", g.Name, "cloud", g.Cloud, "cluster_name", cluster.Name, "cluster_id", cluster.ID)
+	g.log = log.With("name", g.Name, "cloud", g.Cloud)
 	g.size = 0
 
-	if _, err := g.getNodes(ctx, true); err != nil {
+	if _, err := g.getInstances(ctx, true); err != nil {
 		return provider.ProviderInfo{}, err
 	}
 
@@ -118,73 +90,67 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 }
 
 func (g *InstanceGroup) Update(ctx context.Context, update func(instance string, state provider.State)) error {
-	nodes_, err := g.getNodes(ctx, false)
+
+	instances, err := g.getInstances(ctx, false)
 	if err != nil {
 		return err
 	}
 
 	var reterr error
-	for _, node := range nodes_ {
-		srv, err := g.getServer(ctx, node.PhysicalID)
-		if err != nil {
-			reterr = errors.Join(reterr, err)
-			continue
-		}
-
+	for _, srv := range instances {
 		state := provider.StateCreating
 
-		switch node.Status {
-		case "DELETING":
+		switch srv.Status {
+		case "BUILD", "MIGRATING", "PAUSED", "REBUILD":
+			// pass
+
+		case "DELETED", "SHUTOFF", "UNKNOWN":
 			state = provider.StateDeleting
 
-		case "ACTIVE", "OPERATING":
-			if srv != nil {
-				if srv.Created.Add(g.BootTime).Before(time.Now()) {
-					// treat all nodes running long enough as Running
+		case "ACTIVE":
+			if srv.Created.Add(g.BootTime).Before(time.Now()) {
+				// treat all nodes running long enough as Running
+				state = provider.StateRunning
+			} else {
+				log, err := servers.ShowConsoleOutput(g.computeClient, srv.ID, servers.ShowConsoleOutputOpts{
+					Length: 100,
+				}).Extract()
+				if err != nil {
+					reterr = errors.Join(reterr, err)
+					continue
+				}
+
+				if IsCloudInitFinished(log) {
+					g.log.Debug("Instance cloud-init finished", "server_id", srv.ID, "created", srv.Created)
 					state = provider.StateRunning
 				} else {
-					log, err := servers.ShowConsoleOutput(g.computeClient, srv.ID, servers.ShowConsoleOutputOpts{
-						Length: 100,
-					}).Extract()
-					if err != nil {
-						reterr = errors.Join(reterr, err)
-						continue
-					}
-
-					if IsCloudInitFinished(log) {
-						g.log.Debug("Instance cloud-init finished", "server_id", srv.ID, "created", srv.Created)
-						state = provider.StateRunning
-					} else {
-						g.log.Debug("Instance boot time not passed and cloud-init not finished", "server_id", srv.ID, "created", srv.Created, "boot_time", g.BootTime)
-					}
+					g.log.Debug("Instance boot time not passed and cloud-init not finished", "server_id", srv.ID, "created", srv.Created, "boot_time", g.BootTime)
 				}
 			}
 		}
 
-		update(node.ID, state)
+		update(srv.ID, state)
 	}
 
 	return reterr
 }
 
 func (g *InstanceGroup) Increase(ctx context.Context, delta int) (succeeded int, err error) {
-	actionID, err := clusters.Resize(g.clusteringClient, g.ClusterID, clusters.ResizeOpts{
-		AdjustmentType: clusters.ChangeInCapacityAdjustment,
-		Number:         delta,
-	}).Extract()
-	if err != nil {
-		return 0, fmt.Errorf("Failed to resize increase: %w", err)
+	for idx := g.size; idx < g.size+delta; idx++ {
+		id, err2 := g.createInstance(ctx, idx)
+		if err2 != nil {
+			g.log.Error("Failed to create instance", "err", err, "idx", idx)
+			err = errors.Join(err, err2)
+		} else {
+			g.log.Info("Instance creation request successful", "id", id, "idx", idx)
+			succeeded++
+		}
 	}
 
-	action, err := actions.Get(g.clusteringClient, actionID).Extract()
-	if err != nil {
-		return 0, fmt.Errorf("Failed to get resize action: %w", err)
-	}
+	g.log.Info("Increase", "delta", delta, "succeeded", succeeded, "pre_instances", g.size)
+	g.size += succeeded
 
-	g.log.Info("Increase", "delta", delta, "status", action.Status)
-	g.size += delta
-
-	return delta, nil
+	return
 }
 
 func (g *InstanceGroup) Decrease(ctx context.Context, instances []string) (succeeded []string, err error) {
@@ -192,68 +158,85 @@ func (g *InstanceGroup) Decrease(ctx context.Context, instances []string) (succe
 		return nil, nil
 	}
 
-	actionID, err := removeNodes(g.clusteringClient, g.ClusterID,
-		ExtRemoveNodesOpts{
-			Nodes:                instances,
-			DestroyAfterDeletion: true,
-		}).Extract()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to remove nodes: %w", err)
+	succeeded = make([]string, 0, len(instances))
+	for _, id := range instances {
+		err2 := g.deleteInstance(ctx, id)
+		if err2 != nil {
+			g.log.Error("Failed to delete instance", "err", err2, "id", id)
+			err = errors.Join(err, err2)
+		} else {
+			g.log.Info("Instance deletion request successful", "id", id)
+			succeeded = append(succeeded, id)
+		}
 	}
 
-	action, err := actions.Get(g.clusteringClient, actionID).Extract()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get remove action: %w", err)
-	}
-
-	g.log.Info("Decrease", "instances", instances, "status", action.Status)
-	g.size -= len(instances)
+	g.log.Info("Decrease", "instances", instances)
+	g.size -= len(succeeded)
 
 	return instances, err
 }
 
-func (g *InstanceGroup) getNodes(ctx context.Context, initial bool) ([]nodes.Node, error) {
-	page, err := nodes.List(g.clusteringClient, nodes.ListOpts{ClusterID: g.ClusterID}).AllPages()
+func (g *InstanceGroup) getInstances(ctx context.Context, initial bool) ([]servers.Server, error) {
+	page, err := servers.List(g.computeClient, nil).AllPages()
 	if err != nil {
-		return nil, fmt.Errorf("Node listing error: %w", err)
+		return nil, fmt.Errorf("Server listing error: %w", err)
 	}
 
-	nodes, err := nodes.ExtractNodes(page)
+	allServers, err := servers.ExtractServers(page)
 	if err != nil {
-		return nil, fmt.Errorf("Node listing extract error: %w", err)
+		return nil, fmt.Errorf("Server listing extract error: %w", err)
 	}
 
-	size := len(nodes)
+	filteredServers := make([]servers.Server, 0, len(allServers))
+	for _, srv := range allServers {
+		cluster, ok := srv.Metadata[MetadataKey]
+		if !ok || cluster != g.Name {
+			continue
+		}
+
+		filteredServers = append(filteredServers, srv)
+	}
+
+	size := len(filteredServers)
 
 	if !initial && size != g.size {
 		g.log.Error("out-of-sync capacity", "expected", g.size, "actual", size)
 	}
 	g.size = size
 
-	return nodes, nil
+	return filteredServers, nil
 }
 
-func (g *InstanceGroup) getServer(ctx context.Context, id string) (*servers.Server, error) {
-	srv, err := servers.Get(g.computeClient, id).Extract()
-	if errors.Is(err, &gophercloud.ErrResourceNotFound{}) {
-		return nil, nil
+func (g *InstanceGroup) createInstance(ctx context.Context, index int) (string, error) {
+	spec := new(ExtCreateOpts)
+	copier.Copy(spec, &g.ServerSpec)
+
+	spec.Name = fmt.Sprintf(g.ServerSpec.Name, index)
+	if spec.Metadata == nil {
+		spec.Metadata = make(map[string]string)
+	}
+	spec.Metadata[MetadataKey] = g.Name
+
+	srv, err := servers.Create(g.computeClient, spec).Extract()
+	if err != nil {
+		return "", err
 	}
 
-	return srv, err
+	return srv.ID, nil
+}
+
+func (g *InstanceGroup) deleteInstance(ctx context.Context, id string) error {
+	return servers.Delete(g.computeClient, id).ExtractErr()
+}
+
+func (g *InstanceGroup) getInstance(ctx context.Context, id string) (*servers.Server, error) {
+	return servers.Get(g.computeClient, id).Extract()
 }
 
 func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (provider.ConnectInfo, error) {
-	node, err := nodes.Get(g.clusteringClient, instanceID).Extract()
+	srv, err := g.getInstance(ctx, instanceID)
 	if err != nil {
-		return provider.ConnectInfo{}, fmt.Errorf("Failed to get node %s: %w", instanceID, err)
-	}
-
-	srv, err := g.getServer(ctx, node.PhysicalID)
-	if err != nil {
-		return provider.ConnectInfo{}, fmt.Errorf("Failed to get server %s: %w", node.PhysicalID, err)
-	}
-	if srv == nil {
-		return provider.ConnectInfo{}, fmt.Errorf("Server not found %s: %w", node.PhysicalID, os.ErrNotExist)
+		return provider.ConnectInfo{}, fmt.Errorf("Failed to get server %s: %w", instanceID, err)
 	}
 
 	// g.log.Debug("Server info", "srv", srv)

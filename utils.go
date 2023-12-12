@@ -1,41 +1,70 @@
 package fpoc
 
 import (
+	"maps"
 	"regexp"
 	"strings"
 
 	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/clustering/v1/clusters"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"github.com/mitchellh/mapstructure"
 )
 
-// ExtRemoveNodesOpts is an extended version of clusters.RemoveNodesOpts
-// We need to destroy removed nodes, which is unavailable in vanilla
-type ExtRemoveNodesOpts struct {
-	Nodes                []string `json:"nodes" required:"true"`
-	DestroyAfterDeletion bool     `json:"destroy_after_deletion"`
+// BlockDeviceMappingV2 see https://docs.openstack.org/api-ref/compute/#create-server
+type BlockDeviceMappingV2 struct {
+	BootIndex           int    `json:"boot_index,omitempty"`
+	DeleteOnTermination bool   `json:"delete_on_termination,omitempty"`
+	DestinationType     string `json:"destination_type,omitempty"`
+	DeviceName          string `json:"device_name,omitempty"`
+	DeviceType          string `json:"device_type,omitempty"`
+	DiskBus             string `json:"disk_bus,omitempty"`
+	GuestFromat         string `json:"guest_format,omitempty"`
+	NoDevice            bool   `json:"no_device,omitempty"`
+	SourceType          string `json:"source_type,omitempty"`
+	UUID                string `json:"uuid,omitempty"`
+	VolumeSize          int    `json:"volume_size,omitempty"`
 }
 
-func (opts ExtRemoveNodesOpts) ToClusterRemoveNodeMap() (map[string]interface{}, error) {
-	return gophercloud.BuildRequestBody(opts, "del_nodes")
+// SchedulerHints
+type SchedulerHints struct {
+	Group string `json:"group,omitempty"`
 }
 
-func removeNodes(client *gophercloud.ServiceClient, clusterID string, opts ExtRemoveNodesOpts) (r clusters.ActionResult) {
-	b, err := opts.ToClusterRemoveNodeMap()
+// ExtCreateOpts extended version of servers.CreateOpts
+type ExtCreateOpts struct {
+	servers.CreateOpts
+
+	Description          string                 `json:"description,omitempty"`
+	KeyName              string                 `json:"key_name,omitempty"`
+	BlockDeviceMappingV2 []BlockDeviceMappingV2 `json:"block_device_mapping_v2,omitempty"`
+	Networks             any                    `json:"networks,omitempty"`
+	SecurityGroups       []string               `json:"security_groups,omitempty"`
+	UserData             string                 `json:"user_data,omitempty"`
+	SchedulerHints       *SchedulerHints        `json:"os:scheduler_hints,omitempty"`
+}
+
+// ToServerCreateMap for extended opts
+func (opts ExtCreateOpts) ToServerCreateMap() (map[string]interface{}, error) {
+	opts.CreateOpts.SecurityGroups = opts.SecurityGroups
+	opts.CreateOpts.UserData = []byte(opts.UserData)
+
+	ob, err := opts.CreateOpts.ToServerCreateMap()
 	if err != nil {
-		r.Err = err
-		return
+		return nil, err
 	}
-	resp, err := client.Post(actionsURL(client, clusterID), b, &r.Body, &gophercloud.RequestOpts{
-		OkCodes: []int{202},
-	})
-	_, r.Header, r.Err = gophercloud.ParseResponse(resp, err)
-	return
-}
 
-func actionsURL(client *gophercloud.ServiceClient, id string) string {
-	return client.ServiceURL("v1", "clusters", id, "actions")
+	b, err := gophercloud.BuildRequestBody(opts, "")
+	if err != nil {
+		return nil, err
+	}
+
+	delete(b, "user_data")
+	delete(b, "security_groups")
+
+	sob := ob["server"].(map[string]any)
+	maps.Copy(sob, b)
+
+	return ob, nil
 }
 
 type Address struct {
