@@ -15,8 +15,8 @@ The following parameters are supported:
 | `cloud` | string | Name of the cloud config from clouds.yaml to use |
 | `clouds_config` | string | Optional. Path to clouds.yaml |
 | `name`                | string | Name of the Auto Scaling Group |
-| `cluster_id` | string | Optional. UUID of the Senlin cluster. Overrides search by name. |
 | `boot_time` | string | Optional. Wait some time since instance creation to complete boot up process. |
+| `server_spec` | object | Server spec used to create instances. See: [Compute API](https://docs.openstack.org/api-ref/compute/#create-server) |
 
 ### Default connector config
 
