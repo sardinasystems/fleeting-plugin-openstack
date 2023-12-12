@@ -209,7 +209,10 @@ func (g *InstanceGroup) getInstances(ctx context.Context, initial bool) ([]serve
 
 func (g *InstanceGroup) createInstance(ctx context.Context, index int) (string, error) {
 	spec := new(ExtCreateOpts)
-	copier.Copy(spec, &g.ServerSpec)
+	err := copier.Copy(spec, &g.ServerSpec)
+	if err != nil {
+		return "", err
+	}
 
 	spec.Name = fmt.Sprintf(g.ServerSpec.Name, index)
 	if spec.Metadata == nil {
