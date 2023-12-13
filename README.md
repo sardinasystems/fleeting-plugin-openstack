@@ -3,7 +3,8 @@ fleeting-plugin-openstack
 
 GitLab fleeting plugin for OpenStack.
 
-**WIP**
+https://docs.gitlab.com/runner/executors/docker_autoscaler.html
+
 
 Plugin Configuration
 --------------------
@@ -12,42 +13,61 @@ The following parameters are supported:
 
 | Parameter             | Type   | Description |
 |-----------------------|--------|-------------|
-| `cloud` | string | Name of the cloud config from clouds.yaml to use |
-| `clouds_config` | string | Optional. Path to clouds.yaml |
+| `cloud`               | string | Name of the cloud config from clouds.yaml to use |
+| `clouds_config`       | string | Optional. Path to clouds.yaml |
 | `name`                | string | Name of the Auto Scaling Group |
-| `boot_time` | string | Optional. Wait some time since instance creation to complete boot up process. |
-| `server_spec` | object | Server spec used to create instances. See: [Compute API](https://docs.openstack.org/api-ref/compute/#create-server) |
+| `boot_time`           | string | Optional. Maximum wait time for instance to boot up. During that time plugin check Cloud-Init signatures. |
+| `server_spec`         | object | Server spec used to create instances. See: [Compute API](https://docs.openstack.org/api-ref/compute/#create-server) |
+
 
 ### Default connector config
 
 | Parameter                | Default  |
 |--------------------------|----------|
 | `os`                     | `linux`  |
-| `protocol`               | `ssh` |
-| `username`               | `unset` |
-| `use_static_credentials` | `true`  |
+| `protocol`               | `ssh`    |
+| `username`               | `unset`  |
+| `use_static_credentials` | `true`   |
 
-Cluster setup
--------------
 
-OpenStack Senlin cluster requred. Example configuration you may find in etc/.
+OpenStack setup
+---------------
 
-```
-openstack cluster profile create --spec-file etc/sample_profile.yaml runner-profile
-openstack cluster policy create --spec-file etc/sample_affinity_policy.yaml runner-aa-policy
-openstack cluster create --profile runner-profile gitlab-runners
-openstack cluster policy attach --policy runner-aa-policy gitlab-runners
-```
+1. You should create a special user (recommended) and project (optional),
+   then export clouds.yaml with credentials for that cloud.
+
+2. You may create a tenant network for workers, in that case don't forget to add a router.
+   In that case manager VM should have two ports: external and that tenant network,
+   so it will be able to connect to the worker instances.
+
+3. You should upload a special image with gitlab-runner and container runtime installed in it.
+   For example we use [Fedora 38 with Podman](https://mirror.sardinasystems.com/images/Fedora-Cloud-Gitlab-Runner-38-1.6.x86_64.qcow2).
+
+4. You should generate SSH keypair which will be used my manager instance to connect to workers.
+   Public key must be added to Nova from the user.
+
 
 Example runner config
 ---------------------
 ```
+concurrent = 16
+check_interval = 0
+shutdown_timeout = 0
+log_level = "info"
+
+[session_server]
+session_timeout = 1800
+
 [[runners]]
 name = "manager"
 url = "https://gitlab.com"
 token = "token"
 executor = "docker-autoscaler"
+output_limit = 10240
 shell = "bash"
+environment = [
+  "FF_NETWORK_PER_BUILD=1"
+  ]
 
 [runners.cache]
 Type = "s3"
@@ -62,28 +82,46 @@ BucketName = "cache"
 [runners.docker]
 disable_entrypoint_overwrite = false
 oom_kill_disable = false
-disable_cache = false
+disable_cache = true
 shm_size = 0
 network_mtu = 0
 host = "unix:///run/user/1000/podman/podman.sock"
 tls_verify = false
 image = "quay.io/podman/stable"
 privileged = true
-#privileged = false
 pull_policy = ["always", "always"]
 
 [runners.autoscaler]
 capacity_per_instance = 1
 max_use_count = 10
-max_instances = 10
+max_instances = 16
 plugin = "fleeting-plugin-openstack"
 
 [runners.autoscaler.plugin_config]
 cloud = "runner"
 # clouds_file = "/etc/openstack/clouds.yaml"
-name = "senlin-cluster"
-# cluster_id = {{ cluster_id|to_json }}
-boot_time = "1m"
+name = "podman-runners"
+boot_time = "10m"
+
+[runners.autoscaler.plugin_config.server_spec]
+name = "podman-runner-%d"                                               # %d replaced with instance index
+description = "GitLab CI Podman runners with autoscaling"
+tags = ["GitLab", "CI", "Podman"]
+imageRef = "d5460af5-83f3-47d7-9c4f-80294c66b267"                       # Fedora 38 + gitlab-runner
+flavorRef = "4e9d4fa4-a703-4850-8bc1-58b5e139ab57"                      # xlarge flavor
+key_name = "runner_key"                                                 # SSH public key for worker nodes
+networks = [ { uuid = "f05e7f64-9e0f-4c5c-acb0-b636000d7301" } ]        # tenant network
+security_groups = [ "cee22d91-bb9a-455d-be88-e911d3cb066a" ]            # allow SSH ingress from tenant network
+scheduler_hints = { group = "a9c941cb-5b34-46e0-8fc6-7471e3b77c75" }    # [Soft-]Anti-Affinity group
+# runcmd required for podman, see also gitlab docs
+user_data = '''#cloud-config
+package_update: true
+package_upgrade: true
+runcmd:
+- systemctl --now enable podman.socket
+- sudo -u fedora systemctl --user --now enable podman.socket
+- loginctl enable-linger gitlab-runner
+'''
 
 [runners.autoscaler.connector_config]
 username = "fedora"
@@ -91,12 +129,12 @@ password = ""
 key_path = "/etc/gitlab-runner/id_rsa"
 use_static_credentials = true
 keepalive = "30s"
-timeout = "5m"
+timeout = "0m"
 use_external_addr = false
 
 [[runners.autoscaler.policy]]
 idle_count = 2
-idle_time = "15m0s"
+idle_time = "30m0s"
 scale_factor = 0.0
 scale_factor_limit = 0
 ```
