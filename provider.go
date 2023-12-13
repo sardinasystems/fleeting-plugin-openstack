@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sync/atomic"
 	"time"
 
 	"github.com/gophercloud/gophercloud"
@@ -31,10 +32,11 @@ type InstanceGroup struct {
 	BootTimeS    string        `json:"boot_time"`     // optional: wait some time before report machine as available
 	BootTime     time.Duration
 
-	size          int
-	computeClient *gophercloud.ServiceClient
-	settings      provider.Settings
-	log           hclog.Logger
+	size            int
+	computeClient   *gophercloud.ServiceClient
+	settings        provider.Settings
+	log             hclog.Logger
+	instanceCounter atomic.Int32
 }
 
 func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings provider.Settings) (provider.ProviderInfo, error) {
@@ -137,12 +139,12 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 
 func (g *InstanceGroup) Increase(ctx context.Context, delta int) (succeeded int, err error) {
 	for idx := g.size; idx < g.size+delta; idx++ {
-		id, err2 := g.createInstance(ctx, idx)
+		id, err2 := g.createInstance(ctx)
 		if err2 != nil {
-			g.log.Error("Failed to create instance", "err", err, "idx", idx)
+			g.log.Error("Failed to create instance", "err", err)
 			err = errors.Join(err, err2)
 		} else {
-			g.log.Info("Instance creation request successful", "id", id, "idx", idx)
+			g.log.Info("Instance creation request successful", "id", id)
 			succeeded++
 		}
 	}
@@ -207,12 +209,14 @@ func (g *InstanceGroup) getInstances(ctx context.Context, initial bool) ([]serve
 	return filteredServers, nil
 }
 
-func (g *InstanceGroup) createInstance(ctx context.Context, index int) (string, error) {
+func (g *InstanceGroup) createInstance(ctx context.Context) (string, error) {
 	spec := new(ExtCreateOpts)
 	err := copier.Copy(spec, &g.ServerSpec)
 	if err != nil {
 		return "", err
 	}
+
+	index := int(g.instanceCounter.Add(1))
 
 	spec.Name = fmt.Sprintf(g.ServerSpec.Name, index)
 	if spec.Metadata == nil {
