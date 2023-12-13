@@ -40,7 +40,7 @@ type ExtCreateOpts struct {
 	Networks             any                    `json:"networks,omitempty"`
 	SecurityGroups       []string               `json:"security_groups,omitempty"`
 	UserData             string                 `json:"user_data,omitempty"`
-	SchedulerHints       *SchedulerHints        `json:"os:scheduler_hints,omitempty"`
+	SchedulerHints       *SchedulerHints        `json:"scheduler_hints,omitempty"`
 }
 
 // ToServerCreateMap for extended opts
@@ -60,6 +60,14 @@ func (opts ExtCreateOpts) ToServerCreateMap() (map[string]interface{}, error) {
 
 	delete(b, "user_data")
 	delete(b, "security_groups")
+
+	if opts.SchedulerHints != nil {
+		hints := b["scheduler_hints"]
+		delete(b, "scheduler_hints")
+		if hints != nil {
+			ob["os:scheduler_hints"] = hints
+		}
+	}
 
 	sob := ob["server"].(map[string]any)
 	maps.Copy(sob, b)

@@ -49,14 +49,14 @@ func TestExtCreateOpts(t *testing.T) {
 		"key_name": "gitlab-autoscaler",
 		"networks": [{"uuid": "c487d046-80ad-4da0-8b98-4a48ad3c257a"}],
 		"security_groups": ["allow_gitlab_runner"],
-		"os:scheduler_hints": {"group": "a5b557be-b7f0-4cb3-8f7c-6b5092f29c2c"},
+		"scheduler_hints": {"group": "a5b557be-b7f0-4cb3-8f7c-6b5092f29c2c"},
 		"tags": ["podman", "CI"],
 		"user_data": "#!cloud-config\npackage_update: true\npackage_upgrade: true\n",
 		"metadata": {"foo": "bar"}
 	}
 	`
 
-	expected := `{"server":{"description":"podman instance","flavorRef":"5","imageRef":"f2403879-6fbe-49a0-b71f-54b70039f32a","key_name":"gitlab-autoscaler","metadata":{"foo":"bar"},"name":"gitlab-runner-%d","networks":[{"uuid":"c487d046-80ad-4da0-8b98-4a48ad3c257a"}],"os:scheduler_hints":{"group":"a5b557be-b7f0-4cb3-8f7c-6b5092f29c2c"},"security_groups":[{"name":"allow_gitlab_runner"}],"tags":["podman","CI"],"user_data":"IyFjbG91ZC1jb25maWcKcGFja2FnZV91cGRhdGU6IHRydWUKcGFja2FnZV91cGdyYWRlOiB0cnVlCg=="}}`
+	expected := `{"os:scheduler_hints":{"group":"a5b557be-b7f0-4cb3-8f7c-6b5092f29c2c"},"server":{"description":"podman instance","flavorRef":"5","imageRef":"f2403879-6fbe-49a0-b71f-54b70039f32a","key_name":"gitlab-autoscaler","metadata":{"foo":"bar"},"name":"gitlab-runner-%d","networks":[{"uuid":"c487d046-80ad-4da0-8b98-4a48ad3c257a"}],"security_groups":[{"name":"allow_gitlab_runner"}],"tags":["podman","CI"],"user_data":"IyFjbG91ZC1jb25maWcKcGFja2FnZV91cGRhdGU6IHRydWUKcGFja2FnZV91cGdyYWRlOiB0cnVlCg=="}}`
 
 	cfg := new(ExtCreateOpts)
 	err := json.Unmarshal([]byte(cfgJSON), cfg)
