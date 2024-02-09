@@ -10,9 +10,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
-	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
+	"github.com/gophercloud/gophercloud/v2/openstack/config"
+	clouds "github.com/gophercloud/gophercloud/v2/openstack/config/clouds"
 	"github.com/hashicorp/go-hclog"
 	"github.com/jinzhu/copier"
 
@@ -40,18 +42,25 @@ type InstanceGroup struct {
 }
 
 func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings provider.Settings) (provider.ProviderInfo, error) {
+	// XXX clouds.WithLocations() hard to make conditional, as cloudOpts unexported and there no type suitable to make array
 	if g.CloudsConfig != "" {
 		os.Setenv("OS_CLIENT_CONFIG_FILE", g.CloudsConfig)
 	}
 
-	opts := &clientconfig.ClientOpts{
-		Cloud: g.Cloud,
-		AuthInfo: &clientconfig.AuthInfo{
-			AllowReauth: true,
-		},
+	ao, eo, tlsCfg, err := clouds.Parse(clouds.WithCloudName(g.Cloud))
+	if err != nil {
+		return provider.ProviderInfo{}, fmt.Errorf("Failed to parse clouds.yaml: %w", err)
 	}
 
-	cli, err := clientconfig.NewServiceClient("compute", opts)
+	// plugin is a long running process. force allow reauth
+	ao.AllowReauth = true
+
+	pc, err := config.NewProviderClient(ctx, ao, config.WithTLSConfig(tlsCfg))
+	if err != nil {
+		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Keystone: %w", err)
+	}
+
+	cli, err := openstack.NewComputeV2(pc, eo)
 	if err != nil {
 		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Nova: %w", err)
 	}
