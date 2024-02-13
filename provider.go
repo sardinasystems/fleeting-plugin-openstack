@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path"
 	"sync/atomic"
 	"time"
@@ -42,12 +41,12 @@ type InstanceGroup struct {
 }
 
 func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings provider.Settings) (provider.ProviderInfo, error) {
-	// XXX clouds.WithLocations() hard to make conditional, as cloudOpts unexported and there no type suitable to make array
+	pOpts := []clouds.ParseOption{clouds.WithCloudName(g.Cloud)}
 	if g.CloudsConfig != "" {
-		os.Setenv("OS_CLIENT_CONFIG_FILE", g.CloudsConfig)
+		pOpts = append(pOpts, clouds.WithLocations(g.CloudsConfig))
 	}
 
-	ao, eo, tlsCfg, err := clouds.Parse(clouds.WithCloudName(g.Cloud))
+	ao, eo, tlsCfg, err := clouds.Parse(pOpts...)
 	if err != nil {
 		return provider.ProviderInfo{}, fmt.Errorf("Failed to parse clouds.yaml: %w", err)
 	}
@@ -188,7 +187,7 @@ func (g *InstanceGroup) Decrease(ctx context.Context, instances []string) (succe
 }
 
 func (g *InstanceGroup) getInstances(ctx context.Context, initial bool) ([]servers.Server, error) {
-	page, err := servers.List(g.computeClient, nil).AllPages()
+	page, err := servers.List(g.computeClient, nil).AllPagesWithContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Server listing error: %w", err)
 	}
