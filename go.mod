@@ -3,7 +3,7 @@ module github.com/sardinasystems/fleeting-plugin-openstack
 go 1.22
 
 require (
-	github.com/gophercloud/gophercloud/v2 v2.0.0-20240213123659-4fcad3d32d81
+	github.com/gophercloud/gophercloud/v2 v2.0.0-beta.1
 	github.com/hashicorp/go-hclog v1.6.2
 	github.com/jinzhu/copier v0.4.0
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
