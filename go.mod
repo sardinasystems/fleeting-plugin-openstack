@@ -2,13 +2,15 @@ module github.com/sardinasystems/fleeting-plugin-openstack
 
 go 1.22
 
+exclude github.com/gophercloud/gophercloud/v2 v2.0.0-beta.1
+
 require (
 	github.com/gophercloud/gophercloud/v2 v2.0.0-20240213123659-4fcad3d32d81
 	github.com/hashicorp/go-hclog v1.6.2
 	github.com/jinzhu/copier v0.4.0
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
 	github.com/stretchr/testify v1.8.4
-	gitlab.com/gitlab-org/fleeting/fleeting v0.0.0-20240209110524-c6907dc0960d
+	gitlab.com/gitlab-org/fleeting/fleeting v0.0.0-20240214164802-bfdbedb134e3
 )
 
 require (
@@ -43,8 +45,8 @@ require (
 	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/sys v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240205150955-31a09d347014 // indirect
-	google.golang.org/grpc v1.61.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240213162025-012b6fc9bca9 // indirect
+	google.golang.org/grpc v1.61.1 // indirect
 	google.golang.org/protobuf v1.32.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
