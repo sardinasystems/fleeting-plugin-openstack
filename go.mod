@@ -5,7 +5,7 @@ go 1.22
 exclude github.com/gophercloud/gophercloud/v2 v2.0.0-beta.1
 
 require (
-	github.com/gophercloud/gophercloud/v2 v2.0.0-20240213123659-4fcad3d32d81
+	github.com/gophercloud/gophercloud/v2 v2.0.0-beta.2
 	github.com/hashicorp/go-hclog v1.6.2
 	github.com/jinzhu/copier v0.4.0
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
@@ -41,7 +41,7 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/tidwall/transform v0.0.0-20201103190739-32f242e2dbde // indirect
-	golang.org/x/crypto v0.19.0 // indirect
+	golang.org/x/crypto v0.20.0 // indirect
 	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/sys v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
