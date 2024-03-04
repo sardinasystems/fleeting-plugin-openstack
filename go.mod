@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/go-hclog v1.6.2
 	github.com/jinzhu/copier v0.4.0
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	gitlab.com/gitlab-org/fleeting/fleeting v0.0.0-20240214164802-bfdbedb134e3
 )
 
