@@ -187,7 +187,7 @@ func (g *InstanceGroup) Decrease(ctx context.Context, instances []string) (succe
 }
 
 func (g *InstanceGroup) getInstances(ctx context.Context, initial bool) ([]servers.Server, error) {
-	page, err := servers.List(g.computeClient, nil).AllPagesWithContext(ctx)
+	page, err := servers.List(g.computeClient, nil).AllPages(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Server listing error: %w", err)
 	}
