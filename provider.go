@@ -122,7 +122,7 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 				// treat all nodes running long enough as Running
 				state = provider.StateRunning
 			} else {
-				log, err := servers.ShowConsoleOutput(g.computeClient, srv.ID, servers.ShowConsoleOutputOpts{
+				log, err := servers.ShowConsoleOutput(ctx, g.computeClient, srv.ID, servers.ShowConsoleOutputOpts{
 					Length: 100,
 				}).Extract()
 				if err != nil {
@@ -232,7 +232,7 @@ func (g *InstanceGroup) createInstance(ctx context.Context) (string, error) {
 	}
 	spec.Metadata[MetadataKey] = g.Name
 
-	srv, err := servers.Create(g.computeClient, spec).Extract()
+	srv, err := servers.Create(ctx, g.computeClient, spec).Extract()
 	if err != nil {
 		return "", err
 	}
@@ -241,11 +241,11 @@ func (g *InstanceGroup) createInstance(ctx context.Context) (string, error) {
 }
 
 func (g *InstanceGroup) deleteInstance(ctx context.Context, id string) error {
-	return servers.Delete(g.computeClient, id).ExtractErr()
+	return servers.Delete(ctx, g.computeClient, id).ExtractErr()
 }
 
 func (g *InstanceGroup) getInstance(ctx context.Context, id string) (*servers.Server, error) {
-	return servers.Get(g.computeClient, id).Extract()
+	return servers.Get(ctx, g.computeClient, id).Extract()
 }
 
 func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (provider.ConnectInfo, error) {
