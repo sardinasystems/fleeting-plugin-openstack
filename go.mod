@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/gophercloud/gophercloud/v2 v2.0.0-beta.2
-	github.com/hashicorp/go-hclog v1.6.2
+	github.com/hashicorp/go-hclog v1.6.3
 	github.com/jinzhu/copier v0.4.0
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
 	github.com/stretchr/testify v1.9.0
