@@ -5,68 +5,66 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
 	"github.com/mitchellh/mapstructure"
 )
 
-// BlockDeviceMappingV2 see https://docs.openstack.org/api-ref/compute/#create-server
-type BlockDeviceMappingV2 struct {
-	BootIndex           int    `json:"boot_index,omitempty"`
-	DeleteOnTermination bool   `json:"delete_on_termination,omitempty"`
-	DestinationType     string `json:"destination_type,omitempty"`
-	DeviceName          string `json:"device_name,omitempty"`
-	DeviceType          string `json:"device_type,omitempty"`
-	DiskBus             string `json:"disk_bus,omitempty"`
-	GuestFromat         string `json:"guest_format,omitempty"`
-	NoDevice            bool   `json:"no_device,omitempty"`
-	SourceType          string `json:"source_type,omitempty"`
-	UUID                string `json:"uuid,omitempty"`
-	VolumeSize          int    `json:"volume_size,omitempty"`
-}
-
-// SchedulerHints
-type SchedulerHints struct {
-	Group string `json:"group,omitempty"`
-}
-
 // ExtCreateOpts extended version of servers.CreateOpts
+// nolint:revive
 type ExtCreateOpts struct {
 	servers.CreateOpts
 
-	Description          string                 `json:"description,omitempty"`
-	KeyName              string                 `json:"key_name,omitempty"`
-	BlockDeviceMappingV2 []BlockDeviceMappingV2 `json:"block_device_mapping_v2,omitempty"`
-	Networks             any                    `json:"networks,omitempty"`
-	SecurityGroups       []string               `json:"security_groups,omitempty"`
-	UserData             string                 `json:"user_data,omitempty"`
-	SchedulerHints       *SchedulerHints        `json:"scheduler_hints,omitempty"`
+	// fields absent in gophercloud
+	Description string `json:"description,omitempty"`
+	KeyName     string `json:"key_name,omitempty"`
+
+	// annotation overrides
+	Networks       []servers.Network       `json:"networks,omitempty"`
+	SecurityGroups []string                `json:"security_groups,omitempty"`
+	UserData       string                  `json:"user_data,omitempty"`
+	SchedulerHints *servers.SchedulerHints `json:"scheduler_hints,omitempty"`
 }
 
 // ToServerCreateMap for extended opts
 func (opts ExtCreateOpts) ToServerCreateMap() (map[string]interface{}, error) {
-	opts.CreateOpts.SecurityGroups = opts.SecurityGroups
-	opts.CreateOpts.UserData = []byte(opts.UserData)
+	if opts.Networks != nil {
+		opts.CreateOpts.Networks = opts.Networks
+	}
+
+	if opts.SecurityGroups != nil {
+		opts.CreateOpts.SecurityGroups = opts.SecurityGroups
+	}
+
+	if opts.UserData != "" {
+		opts.CreateOpts.UserData = []byte(opts.UserData)
+	}
+
+	if opts.SchedulerHints != nil {
+		opts.CreateOpts.SchedulerHints = opts.SchedulerHints
+	}
 
 	ob, err := opts.CreateOpts.ToServerCreateMap()
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := gophercloud.BuildRequestBody(opts, "")
-	if err != nil {
-		return nil, err
-	}
-
-	delete(b, "user_data")
-	delete(b, "security_groups")
-
-	if opts.SchedulerHints != nil {
-		hints := b["scheduler_hints"]
-		delete(b, "scheduler_hints")
-		if hints != nil {
-			ob["os:scheduler_hints"] = hints
+	/*
+		b, err := gophercloud.BuildRequestBody(opts, "")
+		if err != nil {
+			return nil, err
 		}
+
+		delete(b, "user_data")
+		delete(b, "security_groups")
+		delete(b, "SchedulerHints")
+	*/
+
+	b := map[string]any{}
+	if opts.Description != "" {
+		b["description"] = opts.Description
+	}
+	if opts.KeyName != "" {
+		b["key_name"] = opts.KeyName
 	}
 
 	sob := ob["server"].(map[string]any)
