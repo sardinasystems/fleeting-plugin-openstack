@@ -33,7 +33,6 @@ type InstanceGroup struct {
 	BootTimeS    string        `json:"boot_time"`     // optional: wait some time before report machine as available
 	BootTime     time.Duration
 
-	size            int
 	computeClient   *gophercloud.ServiceClient
 	settings        provider.Settings
 	log             hclog.Logger
@@ -85,7 +84,6 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 
 	g.settings = settings
 	g.log = log.With("name", g.Name, "cloud", g.Cloud)
-	g.size = 0
 
 	if _, err := g.getInstances(ctx, true); err != nil {
 		return provider.ProviderInfo{}, err
@@ -146,7 +144,7 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 }
 
 func (g *InstanceGroup) Increase(ctx context.Context, delta int) (succeeded int, err error) {
-	for idx := g.size; idx < g.size+delta; idx++ {
+	for idx := 0; idx < delta; idx++ {
 		id, err2 := g.createInstance(ctx)
 		if err2 != nil {
 			g.log.Error("Failed to create instance", "err", err)
@@ -157,8 +155,7 @@ func (g *InstanceGroup) Increase(ctx context.Context, delta int) (succeeded int,
 		}
 	}
 
-	g.log.Info("Increase", "delta", delta, "succeeded", succeeded, "pre_instances", g.size)
-	g.size += succeeded
+	g.log.Info("Increase", "delta", delta, "succeeded", succeeded)
 
 	return
 }
@@ -181,7 +178,6 @@ func (g *InstanceGroup) Decrease(ctx context.Context, instances []string) (succe
 	}
 
 	g.log.Info("Decrease", "instances", instances)
-	g.size -= len(succeeded)
 
 	return instances, err
 }
@@ -206,13 +202,6 @@ func (g *InstanceGroup) getInstances(ctx context.Context, initial bool) ([]serve
 
 		filteredServers = append(filteredServers, srv)
 	}
-
-	size := len(filteredServers)
-
-	if !initial && size != g.size {
-		g.log.Error("out-of-sync capacity", "expected", g.size, "actual", size)
-	}
-	g.size = size
 
 	return filteredServers, nil
 }
