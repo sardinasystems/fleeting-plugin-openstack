@@ -46,10 +46,12 @@ OpenStack setup
 4. You should generate SSH keypair which will be used my manager instance to connect to workers.
    Public key must be added to Nova from the user.
 
+Preparation of the resources could be done by Heat using [heat-stack.yaml](heat-stack.yaml). But consider it as an example.
+
 
 Example runner config
 ---------------------
-```
+```toml
 concurrent = 16
 check_interval = 0
 shutdown_timeout = 0
