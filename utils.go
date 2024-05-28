@@ -95,7 +95,7 @@ func extractAddresses(srv *servers.Server) (map[string][]Address, error) {
 	return ret, nil
 }
 
-var initFinishedRe = regexp.MustCompile(`^.*Cloud-init\ v\.\ .+\ finished\ at.*$`)
+var initFinishedRe = regexp.MustCompile(`^.*Cloud-init\ v\.\ \S+\ finished\ at.*$`)
 
 func IsCloudInitFinished(log string) bool {
 	lines := strings.Split(log, "\n")
