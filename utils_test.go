@@ -12,16 +12,19 @@ import (
 func TestIsCloudInitFinished(t *testing.T) {
 	testCases := []struct {
 		name     string
+		file     string
 		readLen  int
 		expected bool
 	}{
-		{"token-not-fond", 4096, false},
-		{"finished", 102400, true},
+		{"token-not-fond-1", "testdata/console_out.txt", 4096, false},
+		{"finished-1", "testdata/console_out.txt", 102400, true},
+		{"token-not-fond-2", "testdata/console_ubuntu2204.txt", 4096, false},
+		{"finished-2", "testdata/console_ubuntu2204.txt", 102400, true},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			buf, err := os.ReadFile("testdata/console_out.txt")
+			buf, err := os.ReadFile(tc.file)
 			require.NoError(t, err)
 
 			var log string
