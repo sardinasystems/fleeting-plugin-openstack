@@ -85,7 +85,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	g.settings = settings
 	g.log = log.With("name", g.Name, "cloud", g.Cloud)
 
-	if _, err := g.getInstances(ctx, true); err != nil {
+	if _, err := g.getInstances(ctx); err != nil {
 		return provider.ProviderInfo{}, err
 	}
 
@@ -99,7 +99,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 
 func (g *InstanceGroup) Update(ctx context.Context, update func(instance string, state provider.State)) error {
 
-	instances, err := g.getInstances(ctx, false)
+	instances, err := g.getInstances(ctx)
 	if err != nil {
 		return err
 	}
@@ -179,10 +179,10 @@ func (g *InstanceGroup) Decrease(ctx context.Context, instances []string) (succe
 
 	g.log.Info("Decrease", "instances", instances)
 
-	return instances, err
+	return
 }
 
-func (g *InstanceGroup) getInstances(ctx context.Context, initial bool) ([]servers.Server, error) {
+func (g *InstanceGroup) getInstances(ctx context.Context) ([]servers.Server, error) {
 	page, err := servers.List(g.computeClient, nil).AllPages(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Server listing error: %w", err)
