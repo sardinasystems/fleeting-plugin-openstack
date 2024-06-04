@@ -22,8 +22,8 @@ github.com/golang/protobuf v1.5.4 h1:i7eJL8qZTpSEXOPTxNKhASYpMn+8e5Q6AdndVa1dWek
 github.com/golang/protobuf v1.5.4/go.mod h1:lnTiLA8Wa4RWRcIUkrtSVa5nRhsEGBg48fD6rSs7xps=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
-github.com/gophercloud/gophercloud/v2 v2.0.0-rc.1 h1:B0J9VVGlNuMF/743KMVFScDB8M2Bd5N1KlsEZykSBlc=
-github.com/gophercloud/gophercloud/v2 v2.0.0-rc.1/go.mod h1:cwPW9cbJmfBt1c7o/yzXuNjwonhWA+F9Zw8LNQzd3Zk=
+github.com/gophercloud/gophercloud/v2 v2.0.0-rc.2 h1:InOmY7VX3R+LxnbFLVp9XJjgzqxwUMase8EjRs8K/0U=
+github.com/gophercloud/gophercloud/v2 v2.0.0-rc.2/go.mod h1:cwPW9cbJmfBt1c7o/yzXuNjwonhWA+F9Zw8LNQzd3Zk=
 github.com/gorilla/securecookie v1.1.1 h1:miw7JPhV+b/lAHSXz4qd/nN9jRiAFV5FwjeKyCS8BvQ=
 github.com/gorilla/securecookie v1.1.1/go.mod h1:ra0sb63/xPlUeL+yeDciTfxMRAA+MP+HVt/4epWDjd4=
 github.com/gorilla/sessions v1.2.1 h1:DHd3rPN5lE3Ts3D8rKkQ8x/0kqfeNmBAaiSi+o7FsgI=
