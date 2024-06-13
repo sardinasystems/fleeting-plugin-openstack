@@ -221,7 +221,12 @@ func (g *InstanceGroup) createInstance(ctx context.Context) (string, error) {
 	}
 	spec.Metadata[MetadataKey] = g.Name
 
-	srv, err := servers.Create(ctx, g.computeClient, spec, spec.SchedulerHints).Extract()
+	var hintOpts servers.SchedulerHintOptsBuilder
+	if spec.SchedulerHints != nil {
+		hintOpts = spec.SchedulerHints
+	}
+
+	srv, err := servers.Create(ctx, g.computeClient, spec, hintOpts).Extract()
 	if err != nil {
 		return "", err
 	}
