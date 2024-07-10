@@ -44,7 +44,7 @@ OpenStack setup
 3. You should upload a special image with container runtime installed in it.
    For example we use [Flatcar Linux](https://stable.release.flatcar-linux.net/amd64-usr/current/)
 
-4. *(Optional)* You should generate SSH keypair which will be used my manager instance to connect to workers.
+4. *(Optional)* You should generate SSH keypair which will be used by manager instance to connect to workers.
    Public key must be added to Nova from the user.
 
    Note: that key required only for Cloud-Init based images. For a Flatcar plugin can generate dynamic ssh key and pass it via Ignition script.
