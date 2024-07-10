@@ -131,6 +131,7 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 	var reterr error
 	for _, srv := range instances {
 		state := provider.StateCreating
+		lg := g.log.With("server_id", srv.ID, "created", srv.Created, "status", srv.Status)
 
 		switch srv.Status {
 		case "BUILD", "MIGRATING", "PAUSED", "REBUILD":
@@ -138,6 +139,11 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 
 		case "DELETED", "SHUTOFF", "UNKNOWN":
 			state = provider.StateDeleting
+
+		case "ERROR":
+			// unsure if that's proper way...
+			lg.Warn("Instance is in ERROR state. Marking as a timeout.")
+			state = provider.StateTimeout
 
 		case "ACTIVE":
 			if srv.Created.Add(g.BootTime).Before(time.Now()) {
@@ -152,11 +158,14 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 					continue
 				}
 
-				if IsCloudInitFinished(log) {
-					g.log.Debug("Instance cloud-init finished", "server_id", srv.ID, "created", srv.Created)
+				if !g.UseIgnition && IsCloudInitFinished(log) {
+					lg.Info("Instance cloud-init finished")
+					state = provider.StateRunning
+				} else if g.UseIgnition && IsIgnitionFinished(log) {
+					lg.Info("Instance ignition finished")
 					state = provider.StateRunning
 				} else {
-					g.log.Debug("Instance boot time not passed and cloud-init not finished", "server_id", srv.ID, "created", srv.Created, "boot_time", g.BootTime)
+					lg.Debug("Instance boot time not passed and cloud-init/ignition not finished", "boot_time", g.BootTime)
 				}
 			}
 		}
