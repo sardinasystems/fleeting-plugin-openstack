@@ -3,6 +3,8 @@ module github.com/sardinasystems/fleeting-plugin-openstack
 go 1.22
 
 require (
+	github.com/coreos/ignition/v2 v2.19.0
+	github.com/coreos/vcontext v0.0.0-20231102161604-685dc7299dc5
 	github.com/gophercloud/gophercloud/v2 v2.0.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/jinzhu/copier v0.4.0
@@ -15,8 +17,12 @@ require (
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/ChrisTrenkamp/goxpath v0.0.0-20210404020558-97928f7e12b6 // indirect
+	github.com/aws/aws-sdk-go v1.54.17 // indirect
 	github.com/bodgit/ntlmssp v0.0.0-20240506230425-31973bb52d9b // indirect
 	github.com/bodgit/windows v1.0.1 // indirect
+	github.com/coreos/go-json v0.0.0-20231102161613-e49c8866685a // indirect
+	github.com/coreos/go-semver v0.3.1 // indirect
+	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.17.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
@@ -40,6 +46,7 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/tidwall/transform v0.0.0-20201103190739-32f242e2dbde // indirect
+	github.com/vincent-petithory/dataurl v1.0.0 // indirect
 	golang.org/x/mod v0.19.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/sys v0.22.0 // indirect

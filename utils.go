@@ -2,11 +2,15 @@ package fpoc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"regexp"
 	"strings"
 
+	igncfg "github.com/coreos/ignition/v2/config/v3_4"
+	igntyp "github.com/coreos/ignition/v2/config/v3_4/types"
+	"github.com/coreos/vcontext/report"
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
 	"github.com/gophercloud/gophercloud/v2/openstack/image/v2/images"
@@ -165,4 +169,54 @@ func GetImageProperties(ctx context.Context, cli *gophercloud.ServiceClient, ima
 	}
 
 	return out, nil
+}
+
+func InsertSSHKeyIgn(spec *ExtCreateOpts, username, pubKey string) error {
+	var cfg igntyp.Config
+	var err error
+
+	if spec.UserData != "" {
+		var rpt report.Report
+
+		cfg, rpt, err = igncfg.ParseCompatibleVersion([]byte(spec.UserData))
+		if err != nil {
+			return fmt.Errorf("failed to parse ignition: %w", err)
+		}
+
+		_ = rpt
+	}
+
+	if cfg.Ignition.Version == "" {
+		cfg.Ignition.Version = igntyp.MaxVersion.String()
+	}
+
+	var user *igntyp.PasswdUser
+	if cfg.Passwd.Users == nil {
+		cfg.Passwd.Users = make([]igntyp.PasswdUser, 0)
+	}
+
+	for idx, lu := range cfg.Passwd.Users {
+		if lu.Name == username {
+			user = &cfg.Passwd.Users[idx]
+			break
+		}
+	}
+	if user == nil {
+		cfg.Passwd.Users = append(cfg.Passwd.Users, igntyp.PasswdUser{Name: username})
+		user = &cfg.Passwd.Users[len(cfg.Passwd.Users)-1]
+	}
+
+	if user.SSHAuthorizedKeys == nil {
+		user.SSHAuthorizedKeys = make([]igntyp.SSHAuthorizedKey, 0)
+	}
+
+	user.SSHAuthorizedKeys = append(user.SSHAuthorizedKeys, igntyp.SSHAuthorizedKey(pubKey))
+
+	buf, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal ignition: %w", err)
+	}
+
+	spec.UserData = string(buf)
+	return nil
 }

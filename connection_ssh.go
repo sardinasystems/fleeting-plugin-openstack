@@ -21,7 +21,7 @@ type PrivPub interface {
 }
 
 // initSSHKey prepare dynamic ssh key for flatcar instances
-func (g *InstanceGroup) initSSHKey(_ context.Context, log hclog.Logger, settings provider.Settings) error {
+func (g *InstanceGroup) initSSHKey(_ context.Context, log hclog.Logger, settings *provider.Settings) error {
 	var key PrivPub
 	var err error
 
@@ -64,8 +64,8 @@ func (g *InstanceGroup) initSSHKey(_ context.Context, log hclog.Logger, settings
 	log.With("public_key", g.sshPubKey).Debug("Extracted public key")
 
 	if g.imgProps != nil {
-		if g.imgProps.OSAdminUser != "" && settings.ConnectorConfig.Username == "" {
-			settings.ConnectorConfig.Username = g.imgProps.OSAdminUser
+		if g.imgProps.OSAdminUser != "" && settings.Username == "" {
+			settings.Username = g.imgProps.OSAdminUser
 		}
 	}
 

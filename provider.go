@@ -88,16 +88,18 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		g.imgProps = imgProps
 	}
 
-	log.With("creds", settings).Info("settings")
+	// log.With("creds", settings, "image", g.imgProps).Info("settings 1")
 
 	if !g.UseIgnition && !settings.ConnectorConfig.UseStaticCredentials {
 		return provider.ProviderInfo{}, fmt.Errorf("Only static credentials supported in Cloud-Init mode.")
 	}
 
-	err = g.initSSHKey(ctx, log, settings)
+	err = g.initSSHKey(ctx, log, &settings)
 	if err != nil {
 		return provider.ProviderInfo{}, err
 	}
+
+	// log.With("creds", settings, "image", g.imgProps).Info("settings2")
 
 	if g.BootTimeS != "" {
 		g.BootTime, err = time.ParseDuration(g.BootTimeS)
@@ -260,7 +262,10 @@ func (g *InstanceGroup) createInstance(ctx context.Context) (string, error) {
 	}
 
 	if g.UseIgnition {
-		// injectSSHKeyIgn(spec)
+		err := InsertSSHKeyIgn(spec, g.settings.Username, g.sshPubKey)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	srv, err := servers.Create(ctx, g.computeClient, spec, hintOpts).Extract()
@@ -312,12 +317,40 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 		InternalAddr:    ipAddr,
 		ExternalAddr:    ipAddr,
 	}
-
-	// TODO: get image metadata and get os_admin_user
-	// TODO: get from image meta
-	info.OS = "linux"
-	info.Arch = "amd64"
 	info.Protocol = provider.ProtocolSSH
+
+	if g.imgProps != nil {
+		switch g.imgProps.OSType {
+		case "", "linux":
+			info.Protocol = provider.ProtocolSSH
+			info.OS = "linux"
+
+		case "windows":
+			g.log.Warn("Windows not really supported by the plugin.")
+			info.Protocol = provider.ProtocolWinRM
+			info.OS = g.imgProps.OSType
+
+		default:
+			g.log.Warn("Unknown image os_type", "os_type", g.imgProps.OSType)
+			info.OS = g.imgProps.OSType
+		}
+
+		switch g.imgProps.Architecture {
+		case "", "x86_64":
+			info.Arch = "amd64"
+
+		case "aarch64":
+			info.Arch = "arm64"
+
+		default:
+			g.log.Warn("Unknown image arch", "arch", g.imgProps.Architecture)
+		}
+
+	} else {
+		// default to linux on amd64
+		info.OS = "linux"
+		info.Arch = "amd64"
+	}
 
 	// g.log.Debug("Info", "info", info)
 
