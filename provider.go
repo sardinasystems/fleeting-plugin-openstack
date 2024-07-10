@@ -37,6 +37,8 @@ type InstanceGroup struct {
 	computeClient   *gophercloud.ServiceClient
 	settings        provider.Settings
 	log             hclog.Logger
+	imgProps        *ImageProperties
+	sshPubKey       string
 	instanceCounter atomic.Int32
 }
 
@@ -67,17 +69,34 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	cli.Microversion = "2.79" // train+
 	g.computeClient = cli
 
-	imgCli, err := openstack.NewImageV2(pc, eo)
+	_, err = g.ServerSpec.ToServerCreateMap()
 	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("failed to get imagev2: %w", err)
+		return provider.ProviderInfo{}, fmt.Errorf("Failed to check server_spec: %w", err)
 	}
 
-	_ = imgCli
+	if g.ServerSpec.ImageRef != "" {
+		imgCli, err := openstack.NewImageV2(pc, eo)
+		if err != nil {
+			return provider.ProviderInfo{}, fmt.Errorf("Failed to get OpenStack Glance: %w", err)
+		}
+
+		imgProps, err := GetImageProperties(ctx, imgCli, g.ServerSpec.ImageRef)
+		if err != nil {
+			return provider.ProviderInfo{}, err
+		}
+
+		g.imgProps = imgProps
+	}
 
 	log.With("creds", settings).Info("settings")
 
-	if !settings.ConnectorConfig.UseStaticCredentials {
-		return provider.ProviderInfo{}, fmt.Errorf("Only static credentials supported")
+	if !g.UseIgnition && !settings.ConnectorConfig.UseStaticCredentials {
+		return provider.ProviderInfo{}, fmt.Errorf("Only static credentials supported in Cloud-Init mode.")
+	}
+
+	err = g.initSSHKey(ctx, log, settings)
+	if err != nil {
+		return provider.ProviderInfo{}, err
 	}
 
 	if g.BootTimeS != "" {
@@ -85,11 +104,6 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		if err != nil {
 			return provider.ProviderInfo{}, fmt.Errorf("Failed to parse boot_time: %w", err)
 		}
-	}
-
-	_, err = g.ServerSpec.ToServerCreateMap()
-	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("Failed to check server_spec: %w", err)
 	}
 
 	g.settings = settings
@@ -234,6 +248,10 @@ func (g *InstanceGroup) createInstance(ctx context.Context) (string, error) {
 	var hintOpts servers.SchedulerHintOptsBuilder
 	if spec.SchedulerHints != nil {
 		hintOpts = spec.SchedulerHints
+	}
+
+	if g.UseIgnition {
+		// injectSSHKeyIgn(spec)
 	}
 
 	srv, err := servers.Create(ctx, g.computeClient, spec, hintOpts).Extract()
