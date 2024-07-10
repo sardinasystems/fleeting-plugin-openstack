@@ -378,5 +378,25 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 }
 
 func (g *InstanceGroup) Shutdown(ctx context.Context) error {
-	return nil
+
+	// Not necessary, after reboot all old nodes will be deleted anyway.
+	// But that speedup that process.
+	instances, err := g.getInstances(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, srv := range instances {
+		lg := g.log.With("id", srv.ID, "name", srv.Name)
+
+		err2 := g.deleteInstance(ctx, srv.ID)
+		if err2 != nil {
+			lg.Error("Failed to delete instance", "err", err2)
+			err = errors.Join(err, err2)
+		}
+
+		lg.Info("Deleted instance on shutdown")
+	}
+
+	return err
 }
