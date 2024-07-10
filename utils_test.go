@@ -40,6 +40,35 @@ func TestIsCloudInitFinished(t *testing.T) {
 	}
 }
 
+func TestIsIgnitionFinished(t *testing.T) {
+	testCases := []struct {
+		name     string
+		file     string
+		readLen  int
+		expected bool
+	}{
+		{"token-not-fond-1", "testdata/console_flatcar.txt", 4096, false},
+		{"finished-1", "testdata/console_flatcar.txt", 102400, true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			buf, err := os.ReadFile(tc.file)
+			require.NoError(t, err)
+
+			var log string
+			if len(buf) >= tc.readLen {
+				log = string(buf[0:tc.readLen])
+			} else {
+				log = string(buf)
+			}
+
+			obtained := IsIgnitionFinished(log)
+			assert.Equal(t, tc.expected, obtained)
+		})
+	}
+}
+
 func TestExtCreateOpts(t *testing.T) {
 	assert := assert.New(t)
 

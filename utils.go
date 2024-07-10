@@ -95,7 +95,11 @@ func extractAddresses(srv *servers.Server) (map[string][]Address, error) {
 	return ret, nil
 }
 
-var initFinishedRe = regexp.MustCompile(`^.*Cloud-init\ v\.\ \S+\ finished\ at.*$`)
+var (
+	initFinishedRe   = regexp.MustCompile(`^.*Cloud-init\ v\.\ \S+\ finished\ at.*$`)
+	initSSHHostKeyRe = regexp.MustCompile(`^SSH\ host\ key:\ \S+:\S+\ (\S+)$`)
+	initLoginRe      = regexp.MustCompile(`^\S+\ login:\ .*$`)
+)
 
 func IsCloudInitFinished(log string) bool {
 	lines := strings.Split(log, "\n")
@@ -103,6 +107,29 @@ func IsCloudInitFinished(log string) bool {
 	for _, line := range lines {
 		if initFinishedRe.MatchString(line) {
 			return true
+		}
+	}
+	return false
+}
+
+func IsIgnitionFinished(log string) bool {
+	lines := strings.Split(log, "\n")
+
+	// Flatcar do not have any meaningful line,
+	// so instead we first check that there ssh host key message
+	// followed with login prompt
+	searchKeys := true
+
+	for _, line := range lines {
+
+		if searchKeys {
+			if initSSHHostKeyRe.MatchString(line) {
+				searchKeys = false
+			}
+		} else {
+			if initLoginRe.MatchString(line) {
+				return true
+			}
 		}
 	}
 	return false
