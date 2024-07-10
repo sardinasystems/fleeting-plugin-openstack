@@ -30,6 +30,7 @@ type InstanceGroup struct {
 	CloudsConfig string        `json:"clouds_config"` // optional: path to clouds.yaml
 	Name         string        `json:"name"`          // name of the cluster
 	ServerSpec   ExtCreateOpts `json:"server_spec"`   // instance creation spec
+	UseIgnition  bool          `json:"use_ignition"`  // Configure keys via Ignition (Fedora CoreOS / Flatcar)
 	BootTimeS    string        `json:"boot_time"`     // optional: wait some time before report machine as available
 	BootTime     time.Duration
 
@@ -65,6 +66,15 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 
 	cli.Microversion = "2.79" // train+
 	g.computeClient = cli
+
+	imgCli, err := openstack.NewImageV2(pc, eo)
+	if err != nil {
+		return provider.ProviderInfo{}, fmt.Errorf("failed to get imagev2: %w", err)
+	}
+
+	_ = imgCli
+
+	log.With("creds", settings).Info("settings")
 
 	if !settings.ConnectorConfig.UseStaticCredentials {
 		return provider.ProviderInfo{}, fmt.Errorf("Only static credentials supported")

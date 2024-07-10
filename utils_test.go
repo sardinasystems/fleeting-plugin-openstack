@@ -1,10 +1,13 @@
 package fpoc
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"testing"
 
+	"github.com/gophercloud/gophercloud/v2/testhelper"
+	tc "github.com/gophercloud/gophercloud/v2/testhelper/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -106,4 +109,27 @@ func TestExtCreateOpts(t *testing.T) {
 
 	//t.Log(omap)
 	//t.Log(string(req))
+}
+
+func TestGetImageProperties(t *testing.T) {
+	assert := assert.New(t)
+
+	img, err := os.ReadFile("./testdata/image_get.json")
+	require.NoError(t, err)
+
+	testhelper.SetupHTTP()
+	defer testhelper.TeardownHTTP()
+
+	testhelper.ServeFile(t, "", "", "application/json", string(img))
+
+	ctx := context.TODO()
+	imgCli := tc.ServiceClient()
+
+	props, err := GetImageProperties(ctx, imgCli, "1da9661c-953e-424d-a1e5-834a8174b198")
+	assert.NoError(err)
+	if assert.NotNil(props) {
+		assert.Equal("core", props.OSAdminUser)
+	}
+
+	t.Log(props)
 }

@@ -1,11 +1,15 @@
 package fpoc
 
 import (
+	"context"
+	"fmt"
 	"maps"
 	"regexp"
 	"strings"
 
+	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
+	"github.com/gophercloud/gophercloud/v2/openstack/image/v2/images"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -133,4 +137,32 @@ func IsIgnitionFinished(log string) bool {
 		}
 	}
 	return false
+}
+
+// Some good known properties useful for setting up ConnectInfo
+//
+// See also: https://docs.openstack.org/glance/latest/admin/useful-image-properties.html
+type ImageProperties struct {
+	Architecture string `json:"architecture,omitempty" mapstructure:"architecture,omitempty"`
+	OSType       string `json:"os_type,omitempty" mapstructure:"os_type,omitempty"`
+	OSDistro     string `json:"os_distro,omitempty" mapstructure:"os_distro,omitempty"`
+	OSVersion    string `json:"os_version,omitempty" mapstructure:"os_version,omitempty"`
+	OSAdminUser  string `json:"os_admin_user,omitempty" mapstructure:"os_admin_user,omitempty"`
+
+	// Extra map[string]any `mapstructure:",remain"`
+}
+
+func GetImageProperties(ctx context.Context, cli *gophercloud.ServiceClient, imageID string) (*ImageProperties, error) {
+	image, err := images.Get(ctx, cli, imageID).Extract()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get image %s: %w", imageID, err)
+	}
+
+	out := new(ImageProperties)
+	err = mapstructure.Decode(image.Properties, out)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse properties: %w", err)
+	}
+
+	return out, nil
 }
