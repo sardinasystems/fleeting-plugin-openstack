@@ -1,0 +1,444 @@
+---
+
+heat_template_version: 2021-04-16
+
+description: |-
+  Stack setup a GitLab Autoscaler Runners
+
+parameters:
+  key_name:
+    type: string
+    label: Key Name
+    description: Name of key-pair to be used for manager instance
+    default: ci-admin
+    immutable: true
+    constraints:
+      - custom_constraint: nova.keypair
+
+  public_net:
+    type: string
+    label: Public Network
+    default: external
+    immutable: true
+    constraints:
+      - custom_constraint: neutron.network
+
+  public_ipv6_enabled:
+    type: boolean
+    label: Enable IPv6 support on Public Network
+    default: true
+    immutable: true
+
+  availability_zone:
+    type: string
+    label: Availability Zone
+    default: ""
+
+  manager_flavor:
+    type: string
+    label: Manager Flavor
+    description: Flavor for Manager instance.
+    default: m1.medium
+    immutable: true
+    constraints:
+      - custom_constraint: nova.flavor
+
+  runner_flavor:
+    type: string
+    label: Runner Flavor
+    description: Flavor for Runner instance.
+    default: gitlab-runner
+    immutable: true
+    constraints:
+      - custom_constraint: nova.flavor
+
+  dns_zone:
+    type: string
+    label: DNS Zone
+    # default: scalingrunner.cloud.
+    default: ""
+    immutable: true
+
+  gitlab_remote_ip:
+    type: string
+    label: GitLab server address
+    default: 1.2.3.4/32  # gitlab.server
+    immutable: true
+    constraints:
+      - custom_constraint: net_cidr
+
+  private_cidr:
+    type: string
+    label: Private Network CIDR
+    default: 10.42.0.0/24
+    immutable: true
+    constraints:
+      - custom_constraint: net_cidr
+
+  dns_servers:
+    type: comma_delimited_list
+    label: DNS Servers for private network
+    default: "8.8.8.8,9.9.9.9,1.1.1.1"
+    # immutable: true  # XXX(vermakov): stack fails with "update failed"
+    # constraints:  # XXX(vermakov): works only for strings
+    #   - custom_constraint: ip_addr
+
+  plugin_version:
+    type: string
+    label: Fleeting plugin version tag
+    default: 0.19.0
+
+  gitlab_runner_image:
+    type: string
+    label: Gitlab runner image
+    default: gitlab/gitlab-runner:alpine
+
+conditions:
+  public_ipv6_enabled:
+    get_param: public_ipv6_enabled
+
+  dns_enabled:
+    not:
+      equals:
+        - get_param: dns_zone
+        - ''
+
+  dns_aaaa_enabled:
+    and:
+      - dns_enabled
+      - public_ipv6_enabled
+
+resources:
+
+  # -*- network -*-
+
+  runner_net:
+    type: OS::Neutron::Net
+    properties:
+      shared: false
+
+  runner_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      cidr: &runner_cidr {get_param: private_cidr}
+      dns_nameservers: {get_param: dns_servers}
+      network: {get_resource: runner_net}
+
+  runner_router:
+    type: OS::Neutron::Router
+    properties:
+      external_gateway_info:
+        network: {get_param: public_net}
+        # enable_snat: true
+
+  router_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: {get_resource: runner_router}
+      subnet_id: {get_resource: runner_subnet}
+
+  allow_gitlab_runner:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Security group for Gitlab Runner
+      rules:
+        - direction: egress
+          remote_ip_prefix: 0.0.0.0/0
+        -  # Allow ICMP
+          direction: ingress
+          protocol: icmp
+          remote_ip_prefix: 0.0.0.0/0
+        -  # Allow SSH
+          direction: ingress
+          protocol: tcp
+          remote_ip_prefix: 0.0.0.0/0
+          port_range_max: 22
+          port_range_min: 22
+        -  # Allow session port (from gitlab)
+          direction: ingress
+          protocol: tcp
+          remote_ip_prefix: &scm_cidr {get_param: gitlab_remote_ip}
+          port_range_max: 8093
+          port_range_min: 8093
+        -  # Allow session port (internal network)
+          direction: ingress
+          protocol: tcp
+          remote_ip_prefix: *runner_cidr
+          port_range_max: 8093
+          port_range_min: 8093
+        -  # Allow metrics port (from gitlab)
+          direction: ingress
+          protocol: tcp
+          remote_ip_prefix: *scm_cidr
+          port_range_max: 8090
+          port_range_min: 8090
+
+  allow_gitlab_runner_ipv6:
+    type: OS::Neutron::SecurityGroup
+    condition: public_ipv6_enabled
+    properties:
+      description: Security group for Gitlab Runner
+      rules:
+        - direction: egress
+          remote_ip_prefix: ::/0
+          ethertype: IPv6
+        -  # Allow ICMP
+          direction: ingress
+          protocol: ipv6-icmp
+          remote_ip_prefix: ::/0
+          ethertype: IPv6
+        -  # Allow SSH
+          direction: ingress
+          protocol: tcp
+          remote_ip_prefix: ::/0
+          port_range_max: 22
+          port_range_min: 22
+          ethertype: IPv6
+        # yamllint disable
+        # -  # Allow session port (from gitlab)
+        #   direction: ingress
+        #   protocol: tcp
+        #   remote_ip_prefix: &scm_cidr {get_param: gitlab_remote_ip}
+        #   port_range_max: 8093
+        #   port_range_min: 8093
+        # -  # Allow metrics port (from gitlab)
+        #   direction: ingress
+        #   protocol: tcp
+        #   remote_ip_prefix: *scm_cidr
+        #   port_range_max: 8090
+        #   port_range_min: 8090
+        # yamllint enable
+
+  # -*- DNS -*-
+
+  zone:
+    type: OS::Designate::Zone
+    condition: dns_enabled
+    properties:
+      name: {get_param: dns_zone}
+      email: noreply@sardinasystems.com
+      ttl: 300
+
+  manager_a_record:
+    type: OS::Designate::RecordSet
+    condition: dns_enabled
+    properties:
+      name: &mgr_record_name "mgr"
+      zone: {get_resource: zone}
+      ttl: 300
+      type: A
+      records:
+        - &mgr_port_ip {get_attr: [manager_port, fixed_ips, 0, ip_address]}
+
+  manager_aaaa_record:
+    type: OS::Designate::RecordSet
+    condition: dns_aaaa_enabled
+    properties:
+      name: *mgr_record_name
+      zone: {get_resource: zone}
+      ttl: 300
+      type: AAAA
+      records:
+        - {get_attr: [manager_port, fixed_ips, 1, ip_address]}
+
+  gw_a_record:
+    type: OS::Designate::RecordSet
+    condition: dns_enabled
+    properties:
+      name: &gw_record_name "gw"
+      zone: {get_resource: zone}
+      ttl: 300
+      type: A
+      records:
+        - &gw_port_ip {get_attr: [runner_router, external_gateway_info, external_fixed_ips, 0, ip_address]}
+
+  gw_aaaa_record:
+    type: OS::Designate::RecordSet
+    condition: dns_aaaa_enabled
+    properties:
+      name: *gw_record_name
+      zone: {get_resource: zone}
+      ttl: 300
+      type: AAAA
+      records:
+        - {get_attr: [runner_router, external_gateway_info, external_fixed_ips, 1, ip_address]}
+
+  # -*- manager instance -*-
+
+  flatcar_image:
+    type: OS::Glance::WebImage
+    properties:
+      name: {list_join: ['-', ['flatcar', {get_param: 'OS::stack_name'}, {get_param: 'OS::stack_id'}]]}
+      container_format: bare
+      disk_format: qcow2
+      location: "https://repo.geo.sardinasystems.com/mirror/images/flatcar_production_openstack_3815.2.5_amd64.img"
+      architecture: x86_64
+      min_disk: 10
+      min_ram: 4096
+      os_distro: flatcar
+      os_version: '3815.2.5'
+      extra_properties:
+        hw_qemu_guest_agent: 'yes'
+        # hw_firmware_type: uefi
+        hw_machine_type: q35
+        # hw_watchdog_action: reset
+        os_admin_user: core
+        os_type: linux
+
+      tags: [Gitlab, CI, Flatcar]
+      protected: false
+
+  manager_port:
+    type: OS::Neutron::Port
+    properties:
+      network: {get_param: public_net}
+      security_groups:
+        if:
+          - public_ipv6_enabled
+          - [{get_resource: allow_gitlab_runner}, {get_resource: allow_gitlab_runner_ipv6}]
+          - [{get_resource: allow_gitlab_runner}]
+
+  manager_server:
+    type: OS::Nova::Server
+    properties:
+      name: runner-manager
+      flavor: {get_param: manager_flavor}
+      image: {get_resource: flatcar_image}
+      key_name: {get_param: key_name}
+      availability_zone: {get_param: availability_zone}
+      tags: [Gitlab, CI, Manager]
+      networks:
+        - port: {get_resource: manager_port}
+        - network: {get_resource: runner_net}
+
+      metadata:
+        # ipa_enroll: "true"  # we don't have novajoin support for CoreOS
+        hostname: &mgr_hostname
+          yaql:
+            expression: regex(".$").replace($.data.name_and_zone, "")
+            data:
+              name_and_zone:
+                if:
+                  - dns_enabled
+                  # XXX YAQL is a piece of shit. Always makes weird thing with get_attr.
+                  # > No method \"replace\" for receiver re.compile('.$') matches supplied arguments
+                  # - {get_attr: [manager_a_record, show, name]}
+                  - {list_join: [".", [*mgr_record_name, {get_param: dns_zone}]]}
+                  - {list_join: [".", [*mgr_record_name, {get_param: "OS::stack_name"}, "local."]]}
+
+      user_data_format: RAW
+      user_data:
+        # NOTE(vermakov): HOT version >= 2015-10-15 does JSON marshaling
+        str_replace:
+          template: $data
+          params:
+            $data: {get_attr: [manager_ign, value]}
+
+  manager_ign:
+    type: OS::Heat::Value
+    properties:
+      # compiled manager.bu.yml -> ign
+      value:
+        ignition:
+          version: 3.4.0
+        storage:
+          directories:
+            - path: /etc/gitlab-runner
+              mode: 448
+          files:
+            - path: /opt/fleeting-plugin-openstack.tar.gz
+              contents:
+                source:
+                  str_replace:
+                    template: "https://github.com/sardinasystems/fleeting-plugin-openstack/releases/download/$PLUGINVERSION/fleeting-plugin-openstack_$PLUGINVERSION_linux_amd64.tar.gz"
+                    params:
+                      $PLUGINVERSION: {get_param: plugin_version}
+              mode: 420
+            - path: /etc/systemd/network/20-eth1.network
+              contents:
+                compression: ""
+                source: data:,%5BMatch%5D%0AName%3Deth1%0A%0A%5BNetwork%5D%0ADHCP%3Dipv4%0A%0A%5BDHCP%5D%0AUseRoutes%3Dfalse%0AUseGateway%3Dfalse%0ARouteMetric%3D2000%0A
+        systemd:
+          units:
+            - contents: |
+                [Unit]
+                Description=GitLab Runner plugin prepare
+                ConditionFileIsExecutable=!/opt/bin/fleeting-plugin-openstack
+                ConditionPathExists=/opt/fleeting-plugin-openstack.tar.gz
+                [Service]
+                Type=oneshot
+                RemainAfterExit=true
+                Restart=on-failure
+                ExecStartPre=/usr/bin/tar -v --extract --file /opt/fleeting-plugin-openstack.tar.gz -C /opt
+                ExecStart=/usr/bin/rm /opt/fleeting-plugin-openstack.tar.gz
+                [Install]
+                WantedBy=multi-user.target
+              enabled: true
+              name: gitlab-runner-plugin-prepare.service
+            - contents:
+                str_replace:
+                  template: |
+                    [Unit]
+                    Description=GitLab Runner
+                    ConditionFileNotEmpty=/etc/gitlab-runner/config.toml
+                    ConditionFileIsExecutable=/opt/bin/fleeting-plugin-openstack
+                    After=network-online.target docker.service gitlab-runner-plugin-prepare.service
+                    Wants=network-online.target
+                    Requires=docker.service gitlab-runner-plugin-prepare.service
+                    [Service]
+                    Environment=IMAGE=$RUNNER_IMAGE
+                    EnvironmentFile=-/etc/sysconfig/gitlab-runner
+                    ExecStartPre=-/usr/bin/docker rm --force gitlab-runner
+                    ExecStart=/usr/bin/docker run --name gitlab-runner --pull always --network=host --ipc=host \
+                      -v /etc/gitlab-runner:/etc/gitlab-runner \
+                      -v /var/run/docker.sock:/var/run/docker.sock \
+                      -v /opt/bin:/usr/local/bin \
+                      $IMAGE
+                    ExecStop=/usr/bin/docker stop gitlab-runner
+                    StartLimitInterval=5
+                    StartLimitBurst=10
+                    Restart=always
+                    RestartSec=120
+                    [Install]
+                    WantedBy=multi-user.target
+                  params:
+                    $RUNNER_IMAGE: {get_param: gitlab_runner_image}
+              enabled: true
+              name: gitlab-runner.service
+
+  # -*- runner cluster -*-
+
+  runner_aa:
+    type: OS::Nova::ServerGroup
+    properties:
+      policies:
+        - soft-anti-affinity
+
+outputs:
+  cluster_id:
+    description: Cluster ID
+    value: {get_param: 'OS::stack_id'}
+  manager_hostname:
+    description: Manager DNS name
+    value: *mgr_hostname
+  manager_ip_address:
+    description: Manager IP Address
+    value: *mgr_port_ip
+  runner_gw_ip_address:
+    description: Runner Gateway router IP Address
+    value: *gw_port_ip
+  network_id:
+    description: Network
+    value: {get_resource: runner_net}
+  gitlab_sg:
+    description: Security Group
+    value: {get_resource: allow_gitlab_runner}
+  runner_aa_sg:
+    description: Runner Server Group
+    value: {get_resource: runner_aa}
+  runner_image_id:
+    description: Runner image
+    value: {get_resource: flatcar_image}
+  runner_flavor_name:
+    description: Runner flavor
+    value: {get_param: runner_flavor}

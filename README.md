@@ -15,8 +15,9 @@ The following parameters are supported:
 |-----------------------|--------|-------------|
 | `cloud`               | string | Name of the cloud config from clouds.yaml to use |
 | `clouds_config`       | string | Optional. Path to clouds.yaml |
-| `name`                | string | Name of the Auto Scaling Group |
+| `name`                | string | Name of the Auto Scaling Group (unique string that used to find instances) |
 | `boot_time`           | string | Optional. Maximum wait time for instance to boot up. During that time plugin check Cloud-Init signatures. |
+| `use_ignition`        | string | Enable Fedora CoreOS / Flatcar Linux Ignition support |
 | `server_spec`         | object | Server spec used to create instances. See: [Compute API](https://docs.openstack.org/api-ref/compute/#create-server) |
 
 
@@ -40,13 +41,15 @@ OpenStack setup
    In that case manager VM should have two ports: external and that tenant network,
    so it will be able to connect to the worker instances.
 
-3. You should upload a special image with gitlab-runner and container runtime installed in it.
-   For example we use [Fedora 38 with Podman](https://mirror.sardinasystems.com/images/Fedora-Cloud-Gitlab-Runner-38-1.6.x86_64.qcow2).
+3. You should upload a special image with container runtime installed in it.
+   For example we use [Flatcar Linux](https://stable.release.flatcar-linux.net/amd64-usr/current/)
 
-4. You should generate SSH keypair which will be used my manager instance to connect to workers.
+4. *(Optional)* You should generate SSH keypair which will be used my manager instance to connect to workers.
    Public key must be added to Nova from the user.
 
-Preparation of the resources could be done by Heat using [heat-stack.yaml](heat-stack.yaml). But consider it as an example.
+   Note: that key required only for Cloud-Init based images. For a Flatcar plugin can generate dynamic ssh key and pass it via Ignition script.
+
+Preparation of the resources could be done by Heat using [heat/stack.yaml](heat/stack.yaml). But consider it as an example.
 
 
 Example runner config

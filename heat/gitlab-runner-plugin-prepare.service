@@ -1,0 +1,14 @@
+[Unit]
+Description=GitLab Runner plugin prepare
+ConditionFileIsExecutable=!/opt/bin/fleeting-plugin-openstack
+ConditionPathExists=/opt/fleeting-plugin-openstack.tar.gz
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+Restart=on-failure
+ExecStartPre=/usr/bin/tar -v --extract --file /opt/fleeting-plugin-openstack.tar.gz -C /opt
+ExecStart=/usr/bin/rm /opt/fleeting-plugin-openstack.tar.gz
+
+[Install]
+WantedBy=multi-user.target

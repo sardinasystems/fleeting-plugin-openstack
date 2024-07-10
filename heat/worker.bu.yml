@@ -1,0 +1,9 @@
+---
+variant: flatcar
+version: 1.1.0
+
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - $DYNAMICPUBKEY

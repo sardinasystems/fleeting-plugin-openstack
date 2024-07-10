@@ -1,0 +1,34 @@
+[Unit]
+Description=GitLab Runner
+ConditionFileNotEmpty=/etc/gitlab-runner/config.toml
+ConditionFileIsExecutable=/opt/bin/fleeting-plugin-openstack
+After=network-online.target docker.service gitlab-runner-plugin-prepare.service
+Wants=network-online.target
+Requires=docker.service gitlab-runner-plugin-prepare.service
+
+[Service]
+Environment=IMAGE=$RUNNER_IMAGE
+EnvironmentFile=-/etc/sysconfig/gitlab-runner
+
+#ExecStartPre=/usr/bin/docker pull $IMAGE
+ExecStartPre=-/usr/bin/docker rm --force gitlab-runner
+ExecStart=/usr/bin/docker run --name gitlab-runner --pull always --network=host --ipc=host \
+  -v /etc/gitlab-runner:/etc/gitlab-runner \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /opt/bin:/usr/local/bin \
+  $IMAGE
+
+ExecStop=/usr/bin/docker stop gitlab-runner
+#ExecStopPost=/usr/bin/docker rm gitlab-runner
+
+StartLimitInterval=5
+StartLimitBurst=10
+
+Restart=always
+RestartSec=120
+
+#StandardOutput=journal+console
+#StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

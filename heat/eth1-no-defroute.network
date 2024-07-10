@@ -1,0 +1,10 @@
+[Match]
+Name=eth1
+
+[Network]
+DHCP=ipv4
+
+[DHCP]
+UseRoutes=false
+UseGateway=false
+RouteMetric=2000
