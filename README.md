@@ -28,7 +28,7 @@ The following parameters are supported:
 | `os`                     | `linux`  |
 | `protocol`               | `ssh`    |
 | `username`               | `unset`  |
-| `use_static_credentials` | `true`   |
+| `use_static_credentials` | `false`  |
 
 
 OpenStack setup
@@ -49,7 +49,8 @@ OpenStack setup
 
    Note: that key required only for Cloud-Init based images. For a Flatcar plugin can generate dynamic ssh key and pass it via Ignition script.
 
-Preparation of the resources could be done by Heat using [heat/stack.yaml](heat/stack.yaml). But consider it as an example.
+Preparation of the resources could be done by Heat using [heat/stack.yaml](heat/stack.yaml).
+But consider it as an example.
 
 
 Example runner config
@@ -62,6 +63,8 @@ log_level = "info"
 
 [session_server]
 session_timeout = 1800
+listen_address = ":8093"
+advertise_address = "mgr.scalingrunner.cloud:8093"
 
 [[runners]]
 name = "manager"
@@ -90,9 +93,10 @@ oom_kill_disable = false
 disable_cache = true
 shm_size = 0
 network_mtu = 0
-host = "unix:///run/user/1000/podman/podman.sock"
-tls_verify = false
-image = "quay.io/podman/stable"
+# host = "unix:///run/user/1000/podman/podman.sock"
+# tls_verify = false
+# image = "quay.io/podman/stable"
+image = "almalinux:9"
 privileged = true
 pull_policy = ["always", "always"]
 
@@ -104,35 +108,30 @@ plugin = "fleeting-plugin-openstack"
 
 [runners.autoscaler.plugin_config]
 cloud = "runner"
-# clouds_file = "/etc/openstack/clouds.yaml"
-name = "podman-runners"
+clouds_config = "/etc/gitlab-runner/clouds.yaml"
+name = "scaling-runner-stack-id"
 boot_time = "10m"
+use_ignition = true  # enable injection of dynamic SSH key into Ignition config
 
 [runners.autoscaler.plugin_config.server_spec]
-name = "podman-runner-%d"                                               # %d replaced with instance index
-description = "GitLab CI Podman runners with autoscaling"
-tags = ["GitLab", "CI", "Podman"]
-imageRef = "d5460af5-83f3-47d7-9c4f-80294c66b267"                       # Fedora 38 + gitlab-runner
+name = "scaling-runner-%d"                                               # %d replaced with instance index
+description = "GitLab CI Docker runners with autoscaling"
+tags = ["GitLab", "CI", "Docker", "Scaling"]
+imageRef = "d5460af5-83f3-47d7-9c4f-80294c66b267"                       # Flatcar Linux
 flavorRef = "4e9d4fa4-a703-4850-8bc1-58b5e139ab57"                      # xlarge flavor
-key_name = "runner_key"                                                 # SSH public key for worker nodes
+# key_name = "ci-admin"                                                 # SSH public key for worker nodes
 networks = [ { uuid = "f05e7f64-9e0f-4c5c-acb0-b636000d7301" } ]        # tenant network
 security_groups = [ "cee22d91-bb9a-455d-be88-e911d3cb066a" ]            # allow SSH ingress from tenant network
 scheduler_hints = { group = "a9c941cb-5b34-46e0-8fc6-7471e3b77c75" }    # [Soft-]Anti-Affinity group
-# runcmd required for podman, see also gitlab docs
-user_data = '''#cloud-config
-package_update: true
-package_upgrade: true
-runcmd:
-- systemctl --now enable podman.socket
-- sudo -u fedora systemctl --user --now enable podman.socket
-- loginctl enable-linger gitlab-runner
-'''
+# May be used to pass #cloud-config or ignition scripts.
+# If use_ignition == true, plugin will try parse existing script to inject passwd.users entry.
+# user_data = ''''''
 
 [runners.autoscaler.connector_config]
-username = "fedora"
-password = ""
-key_path = "/etc/gitlab-runner/id_rsa"
-use_static_credentials = true
+# username = "fedora"                    # Can be extracted from Image metadata os_admin_user
+# password = ""                          # not used
+# key_path = "/etc/gitlab-runner/id_rsa" # private key passed to server_spec.key_name. Required in cloud-init mode, optional for Ignition.
+# use_static_credentials = true          # Tells to use key provided above.
 keepalive = "30s"
 timeout = "0m"
 use_external_addr = false
