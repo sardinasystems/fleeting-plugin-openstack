@@ -94,9 +94,11 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		return provider.ProviderInfo{}, fmt.Errorf("Only static credentials supported in Cloud-Init mode.")
 	}
 
-	err = g.initSSHKey(ctx, log, &settings)
-	if err != nil {
-		return provider.ProviderInfo{}, err
+	if g.UseIgnition {
+		err = g.initSSHKey(ctx, log, &settings)
+		if err != nil {
+			return provider.ProviderInfo{}, err
+		}
 	}
 
 	// log.With("creds", settings, "image", g.imgProps).Info("settings2")
