@@ -68,7 +68,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Nova: %w", err)
 	}
 
-	if g.NovaMicroversion != "" {
+	if g.NovaMicroversion == "" {
 		g.NovaMicroversion = "2.79" // Train+
 	}
 
