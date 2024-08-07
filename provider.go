@@ -26,13 +26,14 @@ const MetadataKey = "fleeting-cluster"
 var _ provider.InstanceGroup = (*InstanceGroup)(nil)
 
 type InstanceGroup struct {
-	Cloud        string        `json:"cloud"`         // cloud to use
-	CloudsConfig string        `json:"clouds_config"` // optional: path to clouds.yaml
-	Name         string        `json:"name"`          // name of the cluster
-	ServerSpec   ExtCreateOpts `json:"server_spec"`   // instance creation spec
-	UseIgnition  bool          `json:"use_ignition"`  // Configure keys via Ignition (Fedora CoreOS / Flatcar)
-	BootTimeS    string        `json:"boot_time"`     // optional: wait some time before report machine as available
-	BootTime     time.Duration
+	Cloud              string        `json:"cloud"`               // cloud to use
+	CloudsConfig       string        `json:"clouds_config"`       // optional: path to clouds.yaml
+	Name               string        `json:"name"`                // name of the cluster
+	ClientMicroversion string        `json:"client_microversion"` // Microversion for the Openstack client
+	ServerSpec         ExtCreateOpts `json:"server_spec"`         // instance creation spec
+	UseIgnition        bool          `json:"use_ignition"`        // Configure keys via Ignition (Fedora CoreOS / Flatcar)
+	BootTimeS          string        `json:"boot_time"`           // optional: wait some time before report machine as available
+	BootTime           time.Duration
 
 	computeClient   *gophercloud.ServiceClient
 	settings        provider.Settings
@@ -66,7 +67,11 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Nova: %w", err)
 	}
 
-	cli.Microversion = "2.79" // train+
+	if g.ClientMicroversion != "" {
+		cli.Microversion = g.ClientMicroversion
+	} else {
+		cli.Microversion = "2.79" // train+
+	}
 	g.computeClient = cli
 
 	_, err = g.ServerSpec.ToServerCreateMap()
