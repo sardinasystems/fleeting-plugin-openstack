@@ -14,6 +14,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
 	"github.com/gophercloud/gophercloud/v2/openstack/config"
 	clouds "github.com/gophercloud/gophercloud/v2/openstack/config/clouds"
+	osutil "github.com/gophercloud/gophercloud/v2/openstack/utils"
 	"github.com/hashicorp/go-hclog"
 	"github.com/jinzhu/copier"
 
@@ -26,14 +27,14 @@ const MetadataKey = "fleeting-cluster"
 var _ provider.InstanceGroup = (*InstanceGroup)(nil)
 
 type InstanceGroup struct {
-	Cloud              string        `json:"cloud"`               // cloud to use
-	CloudsConfig       string        `json:"clouds_config"`       // optional: path to clouds.yaml
-	Name               string        `json:"name"`                // name of the cluster
-	ClientMicroversion string        `json:"client_microversion"` // Microversion for the Openstack client
-	ServerSpec         ExtCreateOpts `json:"server_spec"`         // instance creation spec
-	UseIgnition        bool          `json:"use_ignition"`        // Configure keys via Ignition (Fedora CoreOS / Flatcar)
-	BootTimeS          string        `json:"boot_time"`           // optional: wait some time before report machine as available
-	BootTime           time.Duration
+	Cloud            string        `json:"cloud"`             // cloud to use
+	CloudsConfig     string        `json:"clouds_config"`     // optional: path to clouds.yaml
+	Name             string        `json:"name"`              // name of the cluster
+	NovaMicroversion string        `json:"nova_microversion"` // Microversion for the Nova client
+	ServerSpec       ExtCreateOpts `json:"server_spec"`       // instance creation spec
+	UseIgnition      bool          `json:"use_ignition"`      // Configure keys via Ignition (Fedora CoreOS / Flatcar)
+	BootTimeS        string        `json:"boot_time"`         // optional: wait some time before report machine as available
+	BootTime         time.Duration
 
 	computeClient   *gophercloud.ServiceClient
 	settings        provider.Settings
@@ -67,12 +68,16 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Nova: %w", err)
 	}
 
-	if g.ClientMicroversion != "" {
-		cli.Microversion = g.ClientMicroversion
-	} else {
-		cli.Microversion = "2.79" // train+
+	if g.NovaMicroversion != "" {
+		g.NovaMicroversion = "2.79" // Train+
 	}
-	g.computeClient = cli
+
+	ncli, err := osutil.RequireMicroversion(ctx, *cli, g.NovaMicroversion)
+	if err != nil {
+		return provider.ProviderInfo{}, fmt.Errorf("Failed to request microversion %s for OpenStack Nova: %w", g.NovaMicroversion, err)
+	}
+
+	g.computeClient = &ncli
 
 	_, err = g.ServerSpec.ToServerCreateMap()
 	if err != nil {
