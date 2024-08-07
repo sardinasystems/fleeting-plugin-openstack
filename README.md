@@ -16,6 +16,7 @@ The following parameters are supported:
 | `cloud`               | string | Name of the cloud config from clouds.yaml to use |
 | `clouds_config`       | string | Optional. Path to clouds.yaml |
 | `name`                | string | Name of the Auto Scaling Group (unique string that used to find instances) |
+| `client_microversion` | string | Microversion for the Openstack client |
 | `boot_time`           | string | Optional. Maximum wait time for instance to boot up. During that time plugin check Cloud-Init signatures. |
 | `use_ignition`        | string | Enable Fedora CoreOS / Flatcar Linux Ignition support |
 | `server_spec`         | object | Server spec used to create instances. See: [Compute API](https://docs.openstack.org/api-ref/compute/#create-server) |
@@ -110,6 +111,7 @@ plugin = "fleeting-plugin-openstack"
 cloud = "runner"
 clouds_config = "/etc/gitlab-runner/clouds.yaml"
 name = "scaling-runner-stack-id"
+client_microversion = "2.79" # train+
 boot_time = "10m"
 use_ignition = true  # enable injection of dynamic SSH key into Ignition config
 
