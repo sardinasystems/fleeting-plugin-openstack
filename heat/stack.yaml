@@ -86,7 +86,7 @@ parameters:
   plugin_version:
     type: string
     label: Fleeting plugin version tag
-    default: 0.19.0
+    default: 0.21.0
 
   gitlab_runner_image:
     type: string
