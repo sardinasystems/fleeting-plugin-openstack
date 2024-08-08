@@ -111,7 +111,7 @@ plugin = "fleeting-plugin-openstack"
 cloud = "runner"
 clouds_config = "/etc/gitlab-runner/clouds.yaml"
 name = "scaling-runner-stack-id"
-client_microversion = "2.79" # train+
+nova_microversion = "2.79" # train+
 boot_time = "10m"
 use_ignition = true  # enable injection of dynamic SSH key into Ignition config
 
