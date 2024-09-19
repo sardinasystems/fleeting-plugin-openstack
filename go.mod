@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/coreos/ignition/v2 v2.19.0
 	github.com/coreos/vcontext v0.0.0-20231102161604-685dc7299dc5
-	github.com/gophercloud/gophercloud/v2 v2.1.0
+	github.com/gophercloud/gophercloud/v2 v2.1.1
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/jinzhu/copier v0.4.0
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
