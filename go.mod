@@ -13,7 +13,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
 	github.com/stretchr/testify v1.9.0
 	gitlab.com/gitlab-org/fleeting/fleeting v0.0.0-20240911165028-a0ce7d6c3260
-	golang.org/x/crypto v0.28.0
+	golang.org/x/crypto v0.29.0
 )
 
 require (
@@ -50,8 +50,8 @@ require (
 	github.com/vincent-petithory/dataurl v1.0.0 // indirect
 	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.30.0 // indirect
-	golang.org/x/sys v0.26.0 // indirect
-	golang.org/x/text v0.19.0 // indirect
+	golang.org/x/sys v0.27.0 // indirect
+	golang.org/x/text v0.20.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241021214115-324edc3d5d38 // indirect
 	google.golang.org/grpc v1.67.1 // indirect
 	google.golang.org/protobuf v1.35.1 // indirect
