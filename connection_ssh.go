@@ -64,6 +64,9 @@ func (g *InstanceGroup) initSSHKey(_ context.Context, log hclog.Logger, settings
 	log.With("public_key", g.sshPubKey).Debug("Extracted public key")
 
 	if g.imgProps != nil {
+		if g.imgProps.OSAdminUser == "" && settings.Username == "" {
+			return fmt.Errorf("image properties 'os_admin_user' and 'runners.autoscaler.connector_config.username' missing. Ensure one is set.")
+		}
 		if g.imgProps.OSAdminUser != "" && settings.Username == "" {
 			settings.Username = g.imgProps.OSAdminUser
 		}
