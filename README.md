@@ -75,7 +75,11 @@ executor = "docker-autoscaler"
 output_limit = 10240
 shell = "bash"
 environment = [
-  "FF_NETWORK_PER_BUILD=1"
+  "FF_NETWORK_PER_BUILD=1",
+  "FF_USE_FASTZIP=1",
+  "ARTIFACT_COMPRESSION_LEVEL=default",
+  "CACHE_COMPRESSION_LEVEL=fastest",
+  "FASTZIP_ARCHIVER_BUFFER_SIZE=67108864"
   ]
 
 [runners.cache]
