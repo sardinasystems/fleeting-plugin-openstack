@@ -15,6 +15,7 @@ The following parameters are supported:
 |-----------------------|--------|-------------|
 | `cloud`               | string | Name of the cloud config from clouds.yaml to use |
 | `clouds_config`       | string | Optional. Path to clouds.yaml |
+| `auth_from_env`       | bool   | Optional. Use environment variables for authentication |
 | `name`                | string | Name of the Auto Scaling Group (unique string that used to find instances) |
 | `nova_microversion`   | string | Optional. Microversion for the Openstack Nova client. Default 2.79 (which should be ok for Train+) |
 | `boot_time`           | string | Optional. Maximum wait time for instance to boot up. During that time plugin check Cloud-Init signatures. |
@@ -37,6 +38,8 @@ OpenStack setup
 
 1. You should create a special user (recommended) and project (optional),
    then export clouds.yaml with credentials for that cloud.
+
+  1. Optional: You can also use OS\_\* environment variables to authenticate.
 
 2. You may create a tenant network for workers, in that case don't forget to add a router.
    In that case manager VM should have two ports: external and that tenant network,

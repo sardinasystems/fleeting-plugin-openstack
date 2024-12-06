@@ -3,8 +3,10 @@ package fpoc
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"os"
 	"path"
 	"sync/atomic"
 	"time"
@@ -29,6 +31,7 @@ var _ provider.InstanceGroup = (*InstanceGroup)(nil)
 type InstanceGroup struct {
 	Cloud            string        `json:"cloud"`             // cloud to use
 	CloudsConfig     string        `json:"clouds_config"`     // optional: path to clouds.yaml
+	AuthFromEnv      bool          `json:"auth_from_env"`     // optional: Use environment variables for authentication
 	Name             string        `json:"name"`              // name of the cluster
 	NovaMicroversion string        `json:"nova_microversion"` // Microversion for the Nova client
 	ServerSpec       ExtCreateOpts `json:"server_spec"`       // instance creation spec
@@ -45,25 +48,15 @@ type InstanceGroup struct {
 }
 
 func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings provider.Settings) (provider.ProviderInfo, error) {
-	pOpts := []clouds.ParseOption{clouds.WithCloudName(g.Cloud)}
-	if g.CloudsConfig != "" {
-		pOpts = append(pOpts, clouds.WithLocations(g.CloudsConfig))
-	}
+	g.log = log.With("name", g.Name, "cloud", g.Cloud)
+	g.log.Debug("Initializing fleeting-plugin-openstack")
 
-	ao, eo, tlsCfg, err := clouds.Parse(pOpts...)
+	providerClient, endpointOps, err := g.getProviderClient(ctx)
 	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("Failed to parse clouds.yaml: %w", err)
+		return provider.ProviderInfo{}, err
 	}
 
-	// plugin is a long running process. force allow reauth
-	ao.AllowReauth = true
-
-	pc, err := config.NewProviderClient(ctx, ao, config.WithTLSConfig(tlsCfg))
-	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Keystone: %w", err)
-	}
-
-	cli, err := openstack.NewComputeV2(pc, eo)
+	cli, err := openstack.NewComputeV2(providerClient, endpointOps)
 	if err != nil {
 		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Nova: %w", err)
 	}
@@ -85,7 +78,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	}
 
 	if g.ServerSpec.ImageRef != "" {
-		imgCli, err := openstack.NewImageV2(pc, eo)
+		imgCli, err := openstack.NewImageV2(providerClient, endpointOps)
 		if err != nil {
 			return provider.ProviderInfo{}, fmt.Errorf("Failed to get OpenStack Glance: %w", err)
 		}
@@ -121,8 +114,6 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	}
 
 	g.settings = settings
-	g.log = log.With("name", g.Name, "cloud", g.Cloud)
-
 	if _, err := g.getInstances(ctx); err != nil {
 		return provider.ProviderInfo{}, err
 	}
@@ -133,6 +124,53 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		Version:   Version,
 		BuildInfo: BuildInfo(),
 	}, nil
+}
+
+func (g *InstanceGroup) getProviderClient(ctx context.Context) (*gophercloud.ProviderClient, gophercloud.EndpointOpts, error) {
+	var endpointOps gophercloud.EndpointOpts
+	var authOptions gophercloud.AuthOptions
+	var providerClient *gophercloud.ProviderClient
+
+	if g.AuthFromEnv {
+		g.log.Debug("Using env vars for auth")
+
+		var err error
+		endpointOps = gophercloud.EndpointOpts{Region: os.Getenv("OS_REGION_NAME")}
+		authOptions, err = openstack.AuthOptionsFromEnv()
+		if err != nil {
+			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("Failed to get auth options from environment: %w", err)
+		}
+		authOptions.AllowReauth = true
+
+		providerClient, err = openstack.AuthenticatedClient(ctx, authOptions)
+		if err != nil {
+			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("Failed to connect to OpenStack Keystone: %w", err)
+		}
+	} else {
+		g.log.Debug("Using clouds.yaml for auth")
+
+		var err error
+		var tlsCfg *tls.Config
+		cloudOpts := []clouds.ParseOption{clouds.WithCloudName(g.Cloud)}
+		if g.CloudsConfig != "" {
+			cloudOpts = append(cloudOpts, clouds.WithLocations(g.CloudsConfig))
+		}
+
+		authOptions, endpointOps, tlsCfg, err = clouds.Parse(cloudOpts...)
+		if err != nil {
+			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("Failed to parse clouds.yaml: %w", err)
+		}
+
+		// plugin is a long running process. force allow reauth
+		authOptions.AllowReauth = true
+
+		providerClient, err = config.NewProviderClient(ctx, authOptions, config.WithTLSConfig(tlsCfg))
+		if err != nil {
+			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("Failed to connect to OpenStack Keystone: %w", err)
+		}
+	}
+
+	return providerClient, endpointOps, nil
 }
 
 func (g *InstanceGroup) Update(ctx context.Context, update func(instance string, state provider.State)) error {
