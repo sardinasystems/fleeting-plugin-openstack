@@ -105,7 +105,10 @@ pull_policy = ["always", "always"]
 capacity_per_instance = 1
 max_use_count = 10
 max_instances = 16
-plugin = "fleeting-plugin-openstack"
+# NOTE: If you manually download plugin and place it into your PATH:
+# plugin = "fleeting-plugin-openstack"
+# Or just run `gitlab-runner fleeting install` and it'll download OCI image automatically.
+plugin = "ghcr.io/sardinasystems/fleeting-plugin-openstack:latest"
 
 [runners.autoscaler.plugin_config]
 cloud = "runner"

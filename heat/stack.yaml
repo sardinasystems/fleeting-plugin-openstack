@@ -83,15 +83,10 @@ parameters:
     # constraints:  # XXX(vermakov): works only for strings
     #   - custom_constraint: ip_addr
 
-  plugin_version:
-    type: string
-    label: Fleeting plugin version tag
-    default: 0.21.1
-
   gitlab_runner_image:
     type: string
     label: Gitlab runner image
-    default: gitlab/gitlab-runner:alpine
+    default: gitlab/gitlab-runner:latest
 
 conditions:
   public_ipv6_enabled:
@@ -271,12 +266,12 @@ resources:
       name: {list_join: ['-', ['flatcar', {get_param: 'OS::stack_name'}, {get_param: 'OS::stack_id'}]]}
       container_format: bare
       disk_format: qcow2
-      location: "https://repo.geo.sardinasystems.com/mirror/images/flatcar_production_openstack_3815.2.5_amd64.img"
+      location: "https://repo.geo.sardinasystems.com/mirror/images/flatcar_production_openstack_4081.2.0_amd64.img"
       architecture: x86_64
       min_disk: 10
       min_ram: 4096
       os_distro: flatcar
-      os_version: '3815.2.5'
+      os_version: '4081.2.0'
       extra_properties:
         hw_qemu_guest_agent: 'yes'
         # hw_firmware_type: uefi
@@ -284,7 +279,10 @@ resources:
         # hw_watchdog_action: reset
         os_admin_user: core
         os_type: linux
-
+        # precalculated checksum from index.yml
+        # os_hash_algo: sha256
+        # os_hash_value: 2c3616725bb6335c784883477258be97cab74c84dabef6786dc1776eb82719f0
+        owner_specified.openstack.sha256: 2c3616725bb6335c784883477258be97cab74c84dabef6786dc1776eb82719f0
       tags: [Gitlab, CI, Flatcar]
       protected: false
 
@@ -346,59 +344,43 @@ resources:
             - path: /etc/gitlab-runner
               mode: 448
           files:
-            - path: /opt/fleeting-plugin-openstack.tar.gz
-              contents:
-                source:
-                  str_replace:
-                    template: "https://github.com/sardinasystems/fleeting-plugin-openstack/releases/download/$PLUGINVERSION/fleeting-plugin-openstack_$PLUGINVERSION_linux_amd64.tar.gz"
-                    params:
-                      $PLUGINVERSION: {get_param: plugin_version}
-              mode: 420
             - path: /etc/systemd/network/20-eth1.network
               contents:
                 compression: ""
                 source: data:,%5BMatch%5D%0AName%3Deth1%0A%0A%5BNetwork%5D%0ADHCP%3Dipv4%0A%0A%5BDHCP%5D%0AUseRoutes%3Dfalse%0AUseGateway%3Dfalse%0ARouteMetric%3D2000%0A
         systemd:
           units:
-            - contents: |
-                [Unit]
-                Description=GitLab Runner plugin prepare
-                ConditionFileIsExecutable=!/opt/bin/fleeting-plugin-openstack
-                ConditionPathExists=/opt/fleeting-plugin-openstack.tar.gz
-                [Service]
-                Type=oneshot
-                RemainAfterExit=true
-                Restart=on-failure
-                ExecStartPre=/usr/bin/tar -v --extract --file /opt/fleeting-plugin-openstack.tar.gz -C /opt
-                ExecStart=/usr/bin/rm /opt/fleeting-plugin-openstack.tar.gz
-                [Install]
-                WantedBy=multi-user.target
-              enabled: true
-              name: gitlab-runner-plugin-prepare.service
             - contents:
                 str_replace:
                   template: |
                     [Unit]
                     Description=GitLab Runner
                     ConditionFileNotEmpty=/etc/gitlab-runner/config.toml
-                    ConditionFileIsExecutable=/opt/bin/fleeting-plugin-openstack
-                    After=network-online.target docker.service gitlab-runner-plugin-prepare.service
+                    After=network-online.target docker.service
                     Wants=network-online.target
-                    Requires=docker.service gitlab-runner-plugin-prepare.service
+                    Requires=docker.service
                     [Service]
                     Environment=IMAGE=$RUNNER_IMAGE
                     EnvironmentFile=-/etc/sysconfig/gitlab-runner
                     ExecStartPre=-/usr/bin/docker rm --force gitlab-runner
-                    ExecStart=/usr/bin/docker run --name gitlab-runner --pull always --network=host --ipc=host \
+                    ExecStartPre=-/usr/bin/docker volume create plugins
+                    ExecStartPre=/usr/bin/docker run --rm --name gitlab-runner-plugin-install --pull always --network=host --ipc=host \
                       -v /etc/gitlab-runner:/etc/gitlab-runner \
                       -v /var/run/docker.sock:/var/run/docker.sock \
-                      -v /opt/bin:/usr/local/bin \
+                      -v plugins:/root/.config/fleeting/plugins \
+                      $IMAGE fleeting install
+                    ExecStart=/usr/bin/docker run --name gitlab-runner --network=host --ipc=host \
+                      -v /etc/gitlab-runner:/etc/gitlab-runner \
+                      -v /var/run/docker.sock:/var/run/docker.sock \
+                      -v plugins:/root/.config/fleeting/plugins \
                       $IMAGE
                     ExecStop=/usr/bin/docker stop gitlab-runner
                     StartLimitInterval=5
                     StartLimitBurst=10
                     Restart=always
                     RestartSec=120
+                    # StandardOutput=journal+console
+                    # StandardError=inherit
                     [Install]
                     WantedBy=multi-user.target
                   params:

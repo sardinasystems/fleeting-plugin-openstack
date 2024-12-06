@@ -4,11 +4,6 @@ version: 1.1.0
 
 storage:
   files:
-    - path: /opt/fleeting-plugin-openstack.tar.gz
-      mode: 0644
-      contents:
-        source: "https://github.com/sardinasystems/fleeting-plugin-openstack/releases/download/$PLUGINVERSION/fleeting-plugin-openstack_$PLUGINVERSION_linux_amd64.tar.gz"
-
     # NOTE: By default flatcar creates two default routes, which sometimes makes node inaccessible.
     #       That drop-in disables unneded routes on internal runner network.
     - path: /etc/systemd/network/20-eth1.network
@@ -21,10 +16,6 @@ storage:
 
 systemd:
   units:
-    - name: gitlab-runner-plugin-prepare.service
-      enabled: true
-      contents_local: gitlab-runner-plugin-prepare.service
-
     - name: gitlab-runner.service
       enabled: true
       contents_local: gitlab-runner.service
