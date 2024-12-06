@@ -15,4 +15,9 @@ copybin fleeting-plugin-openstack_linux_amd64_v1 linux/amd64
 copybin fleeting-plugin-openstack_linux_arm64_v8.0 linux/arm64
 copybin fleeting-plugin-openstack_linux_arm_7 linux/armv7
 
+tag=${GITHUB_REF#refs/*/}
+
 go install gitlab.com/gitlab-org/fleeting/fleeting-artifact/...@latest
+
+# fleeting-artifact release ghcr.io/sardinasystems/fleeting-plugin-openstack:
+fleeting-artifact release "ghcr.io/$GITHUB_REPOSITORY:$tag"
