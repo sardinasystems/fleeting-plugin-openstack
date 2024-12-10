@@ -2,7 +2,6 @@ package openstackclient
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"os"
 
@@ -100,43 +99,38 @@ func New(ctx context.Context, authConfig AuthConfig) (Client, error) {
 }
 
 func newProviderClient(ctx context.Context, authConfig AuthConfig) (*gophercloud.ProviderClient, gophercloud.EndpointOpts, error) {
-	var endpointOps gophercloud.EndpointOpts
-	var authOptions gophercloud.AuthOptions
-	var providerClient *gophercloud.ProviderClient
-
 	if authConfig.AuthFromEnv {
 		var err error
-		endpointOps = gophercloud.EndpointOpts{Region: os.Getenv("OS_REGION_NAME")}
-		authOptions, err = openstack.AuthOptionsFromEnv()
+		endpointOps := gophercloud.EndpointOpts{Region: os.Getenv("OS_REGION_NAME")}
+		authOptions, err := openstack.AuthOptionsFromEnv()
 		if err != nil {
 			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("failed to get auth options from environment: %w", err)
 		}
 		authOptions.AllowReauth = true
 
-		providerClient, err = openstack.AuthenticatedClient(ctx, authOptions)
+		providerClient, err := openstack.AuthenticatedClient(ctx, authOptions)
 		if err != nil {
 			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("failed to connect to OpenStack Keystone: %w", err)
 		}
-	} else {
-		var err error
-		var tlsCfg *tls.Config
-		cloudOpts := []clouds.ParseOption{clouds.WithCloudName(authConfig.Cloud)}
-		if authConfig.CloudsConfig != "" {
-			cloudOpts = append(cloudOpts, clouds.WithLocations(authConfig.CloudsConfig))
-		}
+		return providerClient, endpointOps, nil
+	}
 
-		authOptions, endpointOps, tlsCfg, err = clouds.Parse(cloudOpts...)
-		if err != nil {
-			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("failed to parse clouds.yaml: %w", err)
-		}
+	cloudOpts := []clouds.ParseOption{clouds.WithCloudName(authConfig.Cloud)}
+	if authConfig.CloudsConfig != "" {
+		cloudOpts = append(cloudOpts, clouds.WithLocations(authConfig.CloudsConfig))
+	}
 
-		// plugin is a long running process. force allow reauth
-		authOptions.AllowReauth = true
+	authOptions, endpointOps, tlsCfg, err := clouds.Parse(cloudOpts...)
+	if err != nil {
+		return nil, gophercloud.EndpointOpts{}, fmt.Errorf("failed to parse clouds.yaml: %w", err)
+	}
 
-		providerClient, err = config.NewProviderClient(ctx, authOptions, config.WithTLSConfig(tlsCfg))
-		if err != nil {
-			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("failed to connect to OpenStack Keystone: %w", err)
-		}
+	// plugin is a long running process. force allow reauth
+	authOptions.AllowReauth = true
+
+	providerClient, err := config.NewProviderClient(ctx, authOptions, config.WithTLSConfig(tlsCfg))
+	if err != nil {
+		return nil, gophercloud.EndpointOpts{}, fmt.Errorf("failed to connect to OpenStack Keystone: %w", err)
 	}
 
 	return providerClient, endpointOps, nil
