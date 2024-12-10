@@ -66,12 +66,12 @@ type client struct {
 	image   *gophercloud.ServiceClient
 }
 
-func New(authConfig AuthConfig) (Client, error) {
+func New(ctx context.Context, authConfig AuthConfig) (Client, error) {
 	if authConfig.NovaMicroversion == "" {
 		authConfig.NovaMicroversion = "2.79" // Train+
 	}
 
-	providerClient, endpointOps, err := newProviderClient(authConfig)
+	providerClient, endpointOps, err := newProviderClient(ctx, authConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func New(authConfig AuthConfig) (Client, error) {
 		return nil, err
 	}
 
-	_computeClient, err := utils.RequireMicroversion(context.TODO(), *computeClient, authConfig.NovaMicroversion)
+	_computeClient, err := utils.RequireMicroversion(ctx, *computeClient, authConfig.NovaMicroversion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to request microversion %s for OpenStack Nova: %w", authConfig.NovaMicroversion, err)
 	}
@@ -99,7 +99,7 @@ func New(authConfig AuthConfig) (Client, error) {
 	}, nil
 }
 
-func newProviderClient(authConfig AuthConfig) (*gophercloud.ProviderClient, gophercloud.EndpointOpts, error) {
+func newProviderClient(ctx context.Context, authConfig AuthConfig) (*gophercloud.ProviderClient, gophercloud.EndpointOpts, error) {
 	var endpointOps gophercloud.EndpointOpts
 	var authOptions gophercloud.AuthOptions
 	var providerClient *gophercloud.ProviderClient
@@ -113,7 +113,7 @@ func newProviderClient(authConfig AuthConfig) (*gophercloud.ProviderClient, goph
 		}
 		authOptions.AllowReauth = true
 
-		providerClient, err = openstack.AuthenticatedClient(context.Background(), authOptions)
+		providerClient, err = openstack.AuthenticatedClient(ctx, authOptions)
 		if err != nil {
 			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("failed to connect to OpenStack Keystone: %w", err)
 		}
@@ -133,7 +133,7 @@ func newProviderClient(authConfig AuthConfig) (*gophercloud.ProviderClient, goph
 		// plugin is a long running process. force allow reauth
 		authOptions.AllowReauth = true
 
-		providerClient, err = config.NewProviderClient(context.TODO(), authOptions, config.WithTLSConfig(tlsCfg))
+		providerClient, err = config.NewProviderClient(ctx, authOptions, config.WithTLSConfig(tlsCfg))
 		if err != nil {
 			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("failed to connect to OpenStack Keystone: %w", err)
 		}

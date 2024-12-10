@@ -48,7 +48,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	g.log.Debug("Initializing fleeting-plugin-openstack")
 
 	var err error
-	g.client, err = newClient(openstackclient.AuthConfig{
+	g.client, err = newClient(ctx, openstackclient.AuthConfig{
 		AuthFromEnv:      g.AuthFromEnv,
 		Cloud:            g.Cloud,
 		CloudsConfig:     g.CloudsConfig,
