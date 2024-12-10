@@ -3,22 +3,16 @@ package fpoc
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
-	"os"
 	"path"
 	"sync/atomic"
 	"time"
 
-	"github.com/gophercloud/gophercloud/v2"
-	"github.com/gophercloud/gophercloud/v2/openstack"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
-	"github.com/gophercloud/gophercloud/v2/openstack/config"
-	clouds "github.com/gophercloud/gophercloud/v2/openstack/config/clouds"
-	osutil "github.com/gophercloud/gophercloud/v2/openstack/utils"
 	"github.com/hashicorp/go-hclog"
 	"github.com/jinzhu/copier"
+	"github.com/sardinasystems/fleeting-plugin-openstack/internal/openstackclient"
 
 	"gitlab.com/gitlab-org/fleeting/fleeting/connector"
 	"gitlab.com/gitlab-org/fleeting/fleeting/provider"
@@ -27,6 +21,8 @@ import (
 const MetadataKey = "fleeting-cluster"
 
 var _ provider.InstanceGroup = (*InstanceGroup)(nil)
+
+var newClient = openstackclient.New
 
 type InstanceGroup struct {
 	Cloud            string        `json:"cloud"`             // cloud to use
@@ -39,10 +35,10 @@ type InstanceGroup struct {
 	BootTimeS        string        `json:"boot_time"`         // optional: wait some time before report machine as available
 	BootTime         time.Duration
 
-	computeClient   *gophercloud.ServiceClient
+	client          openstackclient.Client
 	settings        provider.Settings
 	log             hclog.Logger
-	imgProps        *ImageProperties
+	imgProps        *openstackclient.ImageProperties
 	sshPubKey       string
 	instanceCounter atomic.Int32
 }
@@ -51,26 +47,17 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	g.log = log.With("name", g.Name, "cloud", g.Cloud)
 	g.log.Debug("Initializing fleeting-plugin-openstack")
 
-	providerClient, endpointOps, err := g.getProviderClient(ctx)
+	var err error
+	g.client, err = newClient(openstackclient.AuthConfig{
+		AuthFromEnv:      g.AuthFromEnv,
+		Cloud:            g.Cloud,
+		CloudsConfig:     g.CloudsConfig,
+		NovaMicroversion: g.NovaMicroversion,
+	})
+
 	if err != nil {
 		return provider.ProviderInfo{}, err
 	}
-
-	cli, err := openstack.NewComputeV2(providerClient, endpointOps)
-	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Nova: %w", err)
-	}
-
-	if g.NovaMicroversion == "" {
-		g.NovaMicroversion = "2.79" // Train+
-	}
-
-	ncli, err := osutil.RequireMicroversion(ctx, *cli, g.NovaMicroversion)
-	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("Failed to request microversion %s for OpenStack Nova: %w", g.NovaMicroversion, err)
-	}
-
-	g.computeClient = &ncli
 
 	_, err = g.ServerSpec.ToServerCreateMap()
 	if err != nil {
@@ -78,12 +65,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	}
 
 	if g.ServerSpec.ImageRef != "" {
-		imgCli, err := openstack.NewImageV2(providerClient, endpointOps)
-		if err != nil {
-			return provider.ProviderInfo{}, fmt.Errorf("Failed to get OpenStack Glance: %w", err)
-		}
-
-		imgProps, err := GetImageProperties(ctx, imgCli, g.ServerSpec.ImageRef)
+		imgProps, err := g.client.GetImageProperties(ctx, g.ServerSpec.ImageRef)
 		if err != nil {
 			return provider.ProviderInfo{}, err
 		}
@@ -126,53 +108,6 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	}, nil
 }
 
-func (g *InstanceGroup) getProviderClient(ctx context.Context) (*gophercloud.ProviderClient, gophercloud.EndpointOpts, error) {
-	var endpointOps gophercloud.EndpointOpts
-	var authOptions gophercloud.AuthOptions
-	var providerClient *gophercloud.ProviderClient
-
-	if g.AuthFromEnv {
-		g.log.Debug("Using env vars for auth")
-
-		var err error
-		endpointOps = gophercloud.EndpointOpts{Region: os.Getenv("OS_REGION_NAME")}
-		authOptions, err = openstack.AuthOptionsFromEnv()
-		if err != nil {
-			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("Failed to get auth options from environment: %w", err)
-		}
-		authOptions.AllowReauth = true
-
-		providerClient, err = openstack.AuthenticatedClient(ctx, authOptions)
-		if err != nil {
-			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("Failed to connect to OpenStack Keystone: %w", err)
-		}
-	} else {
-		g.log.Debug("Using clouds.yaml for auth")
-
-		var err error
-		var tlsCfg *tls.Config
-		cloudOpts := []clouds.ParseOption{clouds.WithCloudName(g.Cloud)}
-		if g.CloudsConfig != "" {
-			cloudOpts = append(cloudOpts, clouds.WithLocations(g.CloudsConfig))
-		}
-
-		authOptions, endpointOps, tlsCfg, err = clouds.Parse(cloudOpts...)
-		if err != nil {
-			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("Failed to parse clouds.yaml: %w", err)
-		}
-
-		// plugin is a long running process. force allow reauth
-		authOptions.AllowReauth = true
-
-		providerClient, err = config.NewProviderClient(ctx, authOptions, config.WithTLSConfig(tlsCfg))
-		if err != nil {
-			return nil, gophercloud.EndpointOpts{}, fmt.Errorf("Failed to connect to OpenStack Keystone: %w", err)
-		}
-	}
-
-	return providerClient, endpointOps, nil
-}
-
 func (g *InstanceGroup) Update(ctx context.Context, update func(instance string, state provider.State)) error {
 
 	instances, err := g.getInstances(ctx)
@@ -202,9 +137,7 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 				// treat all nodes running long enough as Running
 				state = provider.StateRunning
 			} else {
-				log, err := servers.ShowConsoleOutput(ctx, g.computeClient, srv.ID, servers.ShowConsoleOutputOpts{
-					Length: 100,
-				}).Extract()
+				log, err := g.client.ShowServerConsoleOutput(ctx, srv.ID)
 				if err != nil {
 					reterr = errors.Join(reterr, err)
 					continue
@@ -252,7 +185,7 @@ func (g *InstanceGroup) Decrease(ctx context.Context, instances []string) (succe
 
 	succeeded = make([]string, 0, len(instances))
 	for _, id := range instances {
-		err2 := g.deleteInstance(ctx, id)
+		err2 := g.client.DeleteServer(ctx, id)
 		if err2 != nil {
 			g.log.Error("Failed to delete instance", "err", err2, "id", id)
 			err = errors.Join(err, err2)
@@ -268,14 +201,9 @@ func (g *InstanceGroup) Decrease(ctx context.Context, instances []string) (succe
 }
 
 func (g *InstanceGroup) getInstances(ctx context.Context) ([]servers.Server, error) {
-	page, err := servers.List(g.computeClient, nil).AllPages(ctx)
+	allServers, err := g.client.ListServers(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Server listing error: %w", err)
-	}
-
-	allServers, err := servers.ExtractServers(page)
-	if err != nil {
-		return nil, fmt.Errorf("Server listing extract error: %w", err)
+		return nil, err
 	}
 
 	filteredServers := make([]servers.Server, 0, len(allServers))
@@ -318,7 +246,7 @@ func (g *InstanceGroup) createInstance(ctx context.Context) (string, error) {
 		}
 	}
 
-	srv, err := servers.Create(ctx, g.computeClient, spec, hintOpts).Extract()
+	srv, err := g.client.CreateServer(ctx, spec, hintOpts)
 	if err != nil {
 		return "", err
 	}
@@ -326,16 +254,8 @@ func (g *InstanceGroup) createInstance(ctx context.Context) (string, error) {
 	return srv.ID, nil
 }
 
-func (g *InstanceGroup) deleteInstance(ctx context.Context, id string) error {
-	return servers.Delete(ctx, g.computeClient, id).ExtractErr()
-}
-
-func (g *InstanceGroup) getInstance(ctx context.Context, id string) (*servers.Server, error) {
-	return servers.Get(ctx, g.computeClient, id).Extract()
-}
-
 func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (provider.ConnectInfo, error) {
-	srv, err := g.getInstance(ctx, instanceID)
+	srv, err := g.client.GetServer(ctx, instanceID)
 	if err != nil {
 		return provider.ConnectInfo{}, fmt.Errorf("Failed to get server %s: %w", instanceID, err)
 	}
