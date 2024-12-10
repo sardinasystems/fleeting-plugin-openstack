@@ -22,8 +22,6 @@ const MetadataKey = "fleeting-cluster"
 
 var _ provider.InstanceGroup = (*InstanceGroup)(nil)
 
-var newClient = openstackclient.New
-
 type InstanceGroup struct {
 	Cloud            string        `json:"cloud"`             // cloud to use
 	CloudsConfig     string        `json:"clouds_config"`     // optional: path to clouds.yaml
@@ -48,7 +46,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	g.log.Debug("Initializing fleeting-plugin-openstack")
 
 	var err error
-	g.client, err = newClient(ctx, openstackclient.AuthConfig{
+	g.client, err = openstackclient.New(ctx, openstackclient.AuthConfig{
 		AuthFromEnv:      g.AuthFromEnv,
 		Cloud:            g.Cloud,
 		CloudsConfig:     g.CloudsConfig,
