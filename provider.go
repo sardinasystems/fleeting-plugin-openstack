@@ -9,14 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gophercloud/gophercloud/v2"
-	"github.com/gophercloud/gophercloud/v2/openstack"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
-	"github.com/gophercloud/gophercloud/v2/openstack/config"
-	clouds "github.com/gophercloud/gophercloud/v2/openstack/config/clouds"
-	osutil "github.com/gophercloud/gophercloud/v2/openstack/utils"
 	"github.com/hashicorp/go-hclog"
 	"github.com/jinzhu/copier"
+	"github.com/sardinasystems/fleeting-plugin-openstack/internal/openstackclient"
 
 	"gitlab.com/gitlab-org/fleeting/fleeting/connector"
 	"gitlab.com/gitlab-org/fleeting/fleeting/provider"
@@ -36,48 +32,30 @@ type InstanceGroup struct {
 	BootTimeS        string        `json:"boot_time"`         // optional: wait some time before report machine as available
 	BootTime         time.Duration
 
-	computeClient   *gophercloud.ServiceClient
+	client          openstackclient.Client
 	settings        provider.Settings
 	log             hclog.Logger
-	imgProps        *ImageProperties
+	imgProps        *openstackclient.ImageProperties
 	sshPubKey       string
 	instanceCounter atomic.Int32
 }
 
 func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings provider.Settings) (provider.ProviderInfo, error) {
-	pOpts := []clouds.ParseOption{clouds.WithCloudName(g.Cloud)}
-	if g.CloudsConfig != "" {
-		pOpts = append(pOpts, clouds.WithLocations(g.CloudsConfig))
-	}
+	g.log = log.With("name", g.Name, "cloud", g.Cloud)
+	g.log.Debug("Initializing fleeting-plugin-openstack")
 
-	ao, eo, tlsCfg, err := clouds.Parse(pOpts...)
+	var err error
+	g.client, err = openstackclient.New(ctx, &openstackclient.EnvCloudConfig{
+		CloudConfig: openstackclient.CloudConfig{
+			ClientConfigFile:  g.CloudsConfig,
+			Cloud:             g.Cloud,
+			ComputeApiVersion: g.NovaMicroversion,
+		},
+	}, nil)
+
 	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("Failed to parse clouds.yaml: %w", err)
+		return provider.ProviderInfo{}, err
 	}
-
-	// plugin is a long running process. force allow reauth
-	ao.AllowReauth = true
-
-	pc, err := config.NewProviderClient(ctx, ao, config.WithTLSConfig(tlsCfg))
-	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Keystone: %w", err)
-	}
-
-	cli, err := openstack.NewComputeV2(pc, eo)
-	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("Failed to connect to OpenStack Nova: %w", err)
-	}
-
-	if g.NovaMicroversion == "" {
-		g.NovaMicroversion = "2.79" // Train+
-	}
-
-	ncli, err := osutil.RequireMicroversion(ctx, *cli, g.NovaMicroversion)
-	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("Failed to request microversion %s for OpenStack Nova: %w", g.NovaMicroversion, err)
-	}
-
-	g.computeClient = &ncli
 
 	_, err = g.ServerSpec.ToServerCreateMap()
 	if err != nil {
@@ -85,12 +63,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	}
 
 	if g.ServerSpec.ImageRef != "" {
-		imgCli, err := openstack.NewImageV2(pc, eo)
-		if err != nil {
-			return provider.ProviderInfo{}, fmt.Errorf("Failed to get OpenStack Glance: %w", err)
-		}
-
-		imgProps, err := GetImageProperties(ctx, imgCli, g.ServerSpec.ImageRef)
+		imgProps, err := g.client.GetImageProperties(ctx, g.ServerSpec.ImageRef)
 		if err != nil {
 			return provider.ProviderInfo{}, err
 		}
@@ -121,8 +94,6 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	}
 
 	g.settings = settings
-	g.log = log.With("name", g.Name, "cloud", g.Cloud)
-
 	if _, err := g.getInstances(ctx); err != nil {
 		return provider.ProviderInfo{}, err
 	}
@@ -164,9 +135,7 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 				// treat all nodes running long enough as Running
 				state = provider.StateRunning
 			} else {
-				log, err := servers.ShowConsoleOutput(ctx, g.computeClient, srv.ID, servers.ShowConsoleOutputOpts{
-					Length: 100,
-				}).Extract()
+				log, err := g.client.ShowServerConsoleOutput(ctx, srv.ID)
 				if err != nil {
 					reterr = errors.Join(reterr, err)
 					continue
@@ -214,7 +183,7 @@ func (g *InstanceGroup) Decrease(ctx context.Context, instances []string) (succe
 
 	succeeded = make([]string, 0, len(instances))
 	for _, id := range instances {
-		err2 := g.deleteInstance(ctx, id)
+		err2 := g.client.DeleteServer(ctx, id)
 		if err2 != nil {
 			g.log.Error("Failed to delete instance", "err", err2, "id", id)
 			err = errors.Join(err, err2)
@@ -230,14 +199,9 @@ func (g *InstanceGroup) Decrease(ctx context.Context, instances []string) (succe
 }
 
 func (g *InstanceGroup) getInstances(ctx context.Context) ([]servers.Server, error) {
-	page, err := servers.List(g.computeClient, nil).AllPages(ctx)
+	allServers, err := g.client.ListServers(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Server listing error: %w", err)
-	}
-
-	allServers, err := servers.ExtractServers(page)
-	if err != nil {
-		return nil, fmt.Errorf("Server listing extract error: %w", err)
+		return nil, err
 	}
 
 	filteredServers := make([]servers.Server, 0, len(allServers))
@@ -280,7 +244,7 @@ func (g *InstanceGroup) createInstance(ctx context.Context) (string, error) {
 		}
 	}
 
-	srv, err := servers.Create(ctx, g.computeClient, spec, hintOpts).Extract()
+	srv, err := g.client.CreateServer(ctx, spec, hintOpts)
 	if err != nil {
 		return "", err
 	}
@@ -288,16 +252,8 @@ func (g *InstanceGroup) createInstance(ctx context.Context) (string, error) {
 	return srv.ID, nil
 }
 
-func (g *InstanceGroup) deleteInstance(ctx context.Context, id string) error {
-	return servers.Delete(ctx, g.computeClient, id).ExtractErr()
-}
-
-func (g *InstanceGroup) getInstance(ctx context.Context, id string) (*servers.Server, error) {
-	return servers.Get(ctx, g.computeClient, id).Extract()
-}
-
 func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (provider.ConnectInfo, error) {
-	srv, err := g.getInstance(ctx, instanceID)
+	srv, err := g.client.GetServer(ctx, instanceID)
 	if err != nil {
 		return provider.ConnectInfo{}, fmt.Errorf("Failed to get server %s: %w", instanceID, err)
 	}
