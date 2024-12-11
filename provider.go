@@ -25,7 +25,6 @@ var _ provider.InstanceGroup = (*InstanceGroup)(nil)
 type InstanceGroup struct {
 	Cloud            string        `json:"cloud"`             // cloud to use
 	CloudsConfig     string        `json:"clouds_config"`     // optional: path to clouds.yaml
-	AuthFromEnv      bool          `json:"auth_from_env"`     // optional: Use environment variables for authentication
 	Name             string        `json:"name"`              // name of the cluster
 	NovaMicroversion string        `json:"nova_microversion"` // Microversion for the Nova client
 	ServerSpec       ExtCreateOpts `json:"server_spec"`       // instance creation spec
@@ -46,12 +45,13 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	g.log.Debug("Initializing fleeting-plugin-openstack")
 
 	var err error
-	g.client, err = openstackclient.New(ctx, openstackclient.AuthConfig{
-		AuthFromEnv:      g.AuthFromEnv,
-		Cloud:            g.Cloud,
-		CloudsConfig:     g.CloudsConfig,
-		NovaMicroversion: g.NovaMicroversion,
-	})
+	g.client, err = openstackclient.New(ctx, &openstackclient.EnvCloudConfig{
+		CloudConfig: openstackclient.CloudConfig{
+			ClientConfigFile:  g.CloudsConfig,
+			Cloud:             g.Cloud,
+			ComputeApiVersion: g.NovaMicroversion,
+		},
+	}, nil)
 
 	if err != nil {
 		return provider.ProviderInfo{}, err
