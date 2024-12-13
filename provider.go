@@ -1,7 +1,6 @@
 package fpoc
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -14,7 +13,6 @@ import (
 	"github.com/jinzhu/copier"
 	"github.com/sardinasystems/fleeting-plugin-openstack/internal/openstackclient"
 
-	"gitlab.com/gitlab-org/fleeting/fleeting/connector"
 	"gitlab.com/gitlab-org/fleeting/fleeting/provider"
 )
 
@@ -319,28 +317,6 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 		info.OS = "linux"
 		info.Arch = "amd64"
 	}
-
-	// g.log.Debug("Info", "info", info)
-
-	inp := bytes.NewBuffer(nil)
-	combinedOut := bytes.NewBuffer(nil)
-
-	ropts := connector.ConnectorOptions{
-		DialOptions: connector.DialOptions{
-			// UseExternalAddr: true,
-		},
-		RunOptions: connector.RunOptions{
-			Command: `echo "ok"`,
-			Stdin:   inp,
-			Stdout:  combinedOut,
-			Stderr:  combinedOut,
-		},
-	}
-	err = connector.Run(ctx, info, ropts)
-	if err != nil {
-		return provider.ConnectInfo{}, fmt.Errorf("Failed to test ssh: %w", err)
-	}
-	g.log.Debug("SSH test result", "out", combinedOut.String())
 
 	return info, nil
 }
