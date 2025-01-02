@@ -3,7 +3,7 @@ module github.com/sardinasystems/fleeting-plugin-openstack
 go 1.22.7
 
 require (
-	github.com/caarlos0/env/v11 v11.2.2
+	github.com/caarlos0/env/v11 v11.3.1
 	github.com/coreos/ignition/v2 v2.20.0
 	github.com/coreos/vcontext v0.0.0-20231102161604-685dc7299dc5
 	github.com/gophercloud/gophercloud/v2 v2.4.0
