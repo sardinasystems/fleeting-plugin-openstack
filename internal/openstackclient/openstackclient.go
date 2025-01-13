@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/caarlos0/env/v11"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
@@ -15,7 +16,6 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/image/v2/images"
 	"github.com/gophercloud/gophercloud/v2/openstack/utils"
 	osClient "github.com/gophercloud/utils/v2/client"
-	"github.com/mitchellh/mapstructure"
 )
 
 type AuthConfig interface {

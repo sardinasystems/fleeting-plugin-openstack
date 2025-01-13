@@ -10,8 +10,8 @@ import (
 	igncfg "github.com/coreos/ignition/v2/config/v3_4"
 	igntyp "github.com/coreos/ignition/v2/config/v3_4/types"
 	"github.com/coreos/vcontext/report"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
-	"github.com/mitchellh/mapstructure"
 )
 
 // ExtCreateOpts extended version of servers.CreateOpts
