@@ -27,7 +27,7 @@ checksum:
 
 archives:
   - id: tar
-    format: tar.gz
+    formats: tar.gz
     files:
       - LICENSE
       - README.md

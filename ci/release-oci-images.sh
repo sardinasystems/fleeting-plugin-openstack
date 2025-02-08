@@ -20,4 +20,4 @@ tag=${GITHUB_REF#refs/*/}
 go install gitlab.com/gitlab-org/fleeting/fleeting-artifact/...@latest
 
 # fleeting-artifact release ghcr.io/sardinasystems/fleeting-plugin-openstack:
-fleeting-artifact release "ghcr.io/$GITHUB_REPOSITORY:$tag"
+fleeting-artifact release "ghcr.io/$GITHUB_REPOSITORY:${tag#v}"
