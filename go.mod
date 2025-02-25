@@ -16,7 +16,7 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/stretchr/testify v1.10.0
 	gitlab.com/gitlab-org/fleeting/fleeting v0.0.0-20250116074924-5d69933ca3b8
-	golang.org/x/crypto v0.34.0
+	golang.org/x/crypto v0.35.0
 )
 
 require (
