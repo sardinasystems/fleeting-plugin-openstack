@@ -266,12 +266,12 @@ resources:
       name: {list_join: ['-', ['flatcar', {get_param: 'OS::stack_name'}, {get_param: 'OS::stack_id'}]]}
       container_format: bare
       disk_format: qcow2
-      location: "https://repo.geo.sardinasystems.com/mirror/images/flatcar_production_openstack_4081.2.0_amd64.img"
+      location: "https://repo.geo.sardinasystems.com/mirror/images/flatcar_production_openstack_4081.3.1_amd64.img"
       architecture: x86_64
       min_disk: 10
       min_ram: 4096
       os_distro: flatcar
-      os_version: '4081.2.0'
+      os_version: '4081.3.1'
       extra_properties:
         hw_qemu_guest_agent: 'yes'
         # hw_firmware_type: uefi
