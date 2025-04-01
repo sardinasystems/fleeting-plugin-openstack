@@ -273,6 +273,7 @@ resources:
       os_distro: flatcar
       os_version: '4081.3.1'
       extra_properties:
+        architecture: x86_64
         hw_qemu_guest_agent: 'yes'
         # hw_firmware_type: uefi
         hw_machine_type: q35
