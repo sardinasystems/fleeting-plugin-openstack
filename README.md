@@ -137,7 +137,27 @@ security_groups = [ "cee22d91-bb9a-455d-be88-e911d3cb066a" ]            # allow 
 scheduler_hints = { group = "a9c941cb-5b34-46e0-8fc6-7471e3b77c75" }    # [Soft-]Anti-Affinity group
 # May be used to pass #cloud-config or ignition scripts.
 # If use_ignition == true, plugin will try parse existing script to inject passwd.users entry.
-# user_data = ''''''
+# Example: disable OS auto-updates
+user_data = '''
+{
+  "ignition": {
+    "version": "3.4.0"
+  },
+  "storage": {
+    "files": [
+      {
+        "overwrite": true,
+        "path": "/etc/flatcar/update.conf",
+        "contents": {
+          "compression": "",
+          "source": "data:,SERVER%3Ddisabled%0AREBOOT_STRATEGY%3Doff%0A"
+        },
+        "mode": 272
+      }
+    ]
+  }
+}
+'''
 
 [runners.autoscaler.connector_config]
 # username = "fedora"                    # Can be extracted from Image metadata os_admin_user
