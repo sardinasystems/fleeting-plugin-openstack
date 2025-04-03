@@ -266,12 +266,12 @@ resources:
       name: {list_join: ['-', ['flatcar', {get_param: 'OS::stack_name'}, {get_param: 'OS::stack_id'}]]}
       container_format: bare
       disk_format: qcow2
-      location: "https://repo.geo.sardinasystems.com/mirror/images/flatcar_production_openstack_4081.3.1_amd64.img"
+      location: "https://repo.geo.sardinasystems.com/mirror/images/flatcar_production_openstack_4081.3.2_amd64.img"
       architecture: x86_64
       min_disk: 10
       min_ram: 4096
       os_distro: flatcar
-      os_version: '4081.3.1'
+      os_version: '4081.3.2'
       extra_properties:
         architecture: x86_64
         hw_qemu_guest_agent: 'yes'
@@ -280,10 +280,7 @@ resources:
         # hw_watchdog_action: reset
         os_admin_user: core
         os_type: linux
-        # precalculated checksum from index.yml
-        # os_hash_algo: sha256
-        # os_hash_value: 2c3616725bb6335c784883477258be97cab74c84dabef6786dc1776eb82719f0
-        owner_specified.openstack.sha256: 2c3616725bb6335c784883477258be97cab74c84dabef6786dc1776eb82719f0
+        owner_specified.openstack.sha256: 82117515e83e6d1ebaa7cfac819dda6eb94cdc9eb77bbd2b98f8d93de325e200
       tags: [Gitlab, CI, Flatcar]
       protected: false
 

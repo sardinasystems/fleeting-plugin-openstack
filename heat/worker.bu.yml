@@ -7,3 +7,13 @@ passwd:
     - name: core
       ssh_authorized_keys:
         - $DYNAMICPUBKEY
+
+storage:
+  files:
+    - path: /etc/flatcar/update.conf
+      overwrite: true
+      mode: 0420
+      contents:
+        inline: |
+          SERVER=disabled
+          REBOOT_STRATEGY=off
