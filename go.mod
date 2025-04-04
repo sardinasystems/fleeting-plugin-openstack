@@ -1,7 +1,6 @@
 module github.com/sardinasystems/fleeting-plugin-openstack
 
 go 1.24.1
-
 // https://gist.github.com/mitchellh/90029601268e59a29e64e55bab1c5bdc
 replace github.com/mitchellh/mapstructure => github.com/go-viper/mapstructure v1.6.0
 
@@ -10,7 +9,7 @@ require (
 	github.com/coreos/ignition/v2 v2.21.0
 	github.com/coreos/vcontext v0.0.0-20231102161604-685dc7299dc5
 	github.com/go-viper/mapstructure/v2 v2.2.1
-	github.com/gophercloud/gophercloud/v2 v2.6.0
+	github.com/gophercloud/gophercloud/v2 v2.7.0
 	github.com/gophercloud/utils/v2 v2.0.0-20250212084022-725b94822eeb
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/jinzhu/copier v0.4.0
