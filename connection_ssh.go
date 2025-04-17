@@ -63,12 +63,13 @@ func (g *InstanceGroup) initSSHKey(_ context.Context, log hclog.Logger, settings
 	g.sshPubKey = string(ssh.MarshalAuthorizedKey(sshPubKey))
 	log.With("public_key", g.sshPubKey).Debug("Extracted public key")
 
-	if g.imgProps != nil {
-		if g.imgProps.OSAdminUser == "" && settings.Username == "" {
+	imgProps := g.imgProps.Load()
+	if imgProps != nil {
+		if imgProps.OSAdminUser == "" && settings.Username == "" {
 			return fmt.Errorf("image properties 'os_admin_user' and 'runners.autoscaler.connector_config.username' missing. Ensure one is set.")
 		}
-		if g.imgProps.OSAdminUser != "" && settings.Username == "" {
-			settings.Username = g.imgProps.OSAdminUser
+		if imgProps.OSAdminUser != "" && settings.Username == "" {
+			settings.Username = imgProps.OSAdminUser
 		}
 	}
 
