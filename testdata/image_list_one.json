@@ -1,0 +1,48 @@
+{
+  "images": [
+    {
+      "architecture": "x86_64",
+      "cpu_arch": "x86_64",
+      "hw_qemu_guest_agent": "yes",
+      "os_admin_user": "core",
+      "os_distro": "flatcar",
+      "os_type": "linux",
+      "owner_specified.openstack.object": "images/flatcar_production_openstack_3815.2.5_amd64.raw",
+      "owner_specified.openstack.sha256": "ce633654e77a46a39eea05333ca320105d410a7e3e4d75a5a57f2eae4f7aae21",
+      "owner_specified.openstack.src_file": "flatcar_production_openstack_3815.2.5_amd64.raw.xz",
+      "name": "flatcar_production_openstack_3815.2.5_amd64.raw",
+      "disk_format": "raw",
+      "container_format": "bare",
+      "visibility": "public",
+      "size": 9116319744,
+      "virtual_size": 9116319744,
+      "status": "active",
+      "checksum": "bc34907c446f5fbcd9e4100947a64ccb",
+      "protected": false,
+      "min_ram": 0,
+      "min_disk": 0,
+      "owner": "9d8bd63e817f47b68c0e8c96ec878b05",
+      "os_hidden": false,
+      "os_hash_algo": "sha512",
+      "os_hash_value": "5a4c200d218520e12697d31ff14b15832537f21e2cb42fd28ffa3f87c383f69b0c9aaf70ccc876277fa900b21baacab1418613199ce5db9d8c80c3877e31aad0",
+      "id": "463074fa-f5cb-4601-b5da-5c45b9aa9981",
+      "created_at": "2025-04-11T09:01:27Z",
+      "updated_at": "2025-04-11T09:14:38Z",
+      "locations": [
+        {
+          "url": "rbd://068c0af1-e528-4a0d-bb70-78fea8cb94c4/images/463074fa-f5cb-4601-b5da-5c45b9aa9981/snap",
+          "metadata": {
+            "store": "rbd"
+          }
+        }
+      ],
+      "tags": [],
+      "self": "/v2/images/463074fa-f5cb-4601-b5da-5c45b9aa9981",
+      "file": "/v2/images/463074fa-f5cb-4601-b5da-5c45b9aa9981/file",
+      "schema": "/v2/schemas/image",
+      "stores": "rbd"
+    }
+  ],
+  "first": "/v2/images?name=flatcar_production_openstack_3815.2.5_amd64.raw",
+  "schema": "/v2/schemas/images"
+}

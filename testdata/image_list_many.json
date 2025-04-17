@@ -1,0 +1,336 @@
+{
+  "images": [
+    {
+      "architecture": "x86_64",
+      "cpu_arch": "x86_64",
+      "os_distro": "cirros",
+      "os_type": "linux",
+      "owner_specified.openstack.object": "images/DEPLOYER_test_image",
+      "owner_specified.openstack.sha256": "7d6355852aeb6dbcd191bcda7cd74f1536cfe5cbf8a10495a7283a8396e4b75b",
+      "owner_specified.openstack.src_file": "cirros-0.6.3-x86_64-disk.img",
+      "name": "DEPLOYER_test_image",
+      "disk_format": "qcow2",
+      "container_format": "bare",
+      "visibility": "private",
+      "size": 21692416,
+      "virtual_size": 117440512,
+      "status": "active",
+      "checksum": "87617e24a5e30cb3b87fda8c0764838f",
+      "protected": false,
+      "min_ram": 0,
+      "min_disk": 0,
+      "owner": "9d8bd63e817f47b68c0e8c96ec878b05",
+      "os_hidden": false,
+      "os_hash_algo": "sha512",
+      "os_hash_value": "9a9bce0083a00939ec17c11febbfc767aa211aaa54f51e75c5a8b271a9b5637c77205a518b7a2007cb391d23cceb01e0e4e8d64832317151bc85b734b92a7be0",
+      "id": "ba28c79b-a021-45e8-87b6-97de56d4833c",
+      "created_at": "2025-04-16T10:46:06Z",
+      "updated_at": "2025-04-16T10:46:10Z",
+      "locations": [
+        {
+          "url": "rbd://068c0af1-e528-4a0d-bb70-78fea8cb94c4/images/ba28c79b-a021-45e8-87b6-97de56d4833c/snap",
+          "metadata": {
+            "store": "rbd"
+          }
+        }
+      ],
+      "tags": [],
+      "self": "/v2/images/ba28c79b-a021-45e8-87b6-97de56d4833c",
+      "file": "/v2/images/ba28c79b-a021-45e8-87b6-97de56d4833c/file",
+      "schema": "/v2/schemas/image",
+      "stores": "rbd"
+    },
+    {
+      "architecture": "x86_64",
+      "cpu_arch": "x86_64",
+      "hw_qemu_guest_agent": "yes",
+      "os_admin_user": "core",
+      "os_distro": "flatcar",
+      "os_type": "linux",
+      "owner_specified.openstack.object": "images/flatcar_production_openstack_3815.2.5_amd64.raw",
+      "owner_specified.openstack.sha256": "ce633654e77a46a39eea05333ca320105d410a7e3e4d75a5a57f2eae4f7aae21",
+      "owner_specified.openstack.src_file": "flatcar_production_openstack_3815.2.5_amd64.raw.xz",
+      "name": "flatcar_production_openstack_3815.2.5_amd64.raw",
+      "disk_format": "raw",
+      "container_format": "bare",
+      "visibility": "public",
+      "size": 9116319744,
+      "virtual_size": 9116319744,
+      "status": "active",
+      "checksum": "bc34907c446f5fbcd9e4100947a64ccb",
+      "protected": false,
+      "min_ram": 0,
+      "min_disk": 0,
+      "owner": "9d8bd63e817f47b68c0e8c96ec878b05",
+      "os_hidden": false,
+      "os_hash_algo": "sha512",
+      "os_hash_value": "5a4c200d218520e12697d31ff14b15832537f21e2cb42fd28ffa3f87c383f69b0c9aaf70ccc876277fa900b21baacab1418613199ce5db9d8c80c3877e31aad0",
+      "id": "463074fa-f5cb-4601-b5da-5c45b9aa9981",
+      "created_at": "2025-04-11T09:01:27Z",
+      "updated_at": "2025-04-11T09:14:38Z",
+      "locations": [
+        {
+          "url": "rbd://068c0af1-e528-4a0d-bb70-78fea8cb94c4/images/463074fa-f5cb-4601-b5da-5c45b9aa9981/snap",
+          "metadata": {
+            "store": "rbd"
+          }
+        }
+      ],
+      "tags": [],
+      "self": "/v2/images/463074fa-f5cb-4601-b5da-5c45b9aa9981",
+      "file": "/v2/images/463074fa-f5cb-4601-b5da-5c45b9aa9981/file",
+      "schema": "/v2/schemas/image",
+      "stores": "rbd"
+    },
+    {
+      "architecture": "x86_64",
+      "cpu_arch": "x86_64",
+      "hw_firmware_type": "uefi",
+      "hw_machine_type": "q35",
+      "os_admin_user": "almalinux",
+      "os_distro": "almalinux",
+      "os_type": "linux",
+      "os_version": "9",
+      "owner_specified.openstack.object": "images/almalinux-9",
+      "owner_specified.openstack.sha256": "3011d8565df765c96e8b0a5268b968abf566032d94b192434fd47ba4673f8a93",
+      "owner_specified.openstack.src_file": "AlmaLinux-9-GenericCloud-9.5-20241120.x86_64.raw.zst",
+      "name": "almalinux-9",
+      "disk_format": "raw",
+      "container_format": "bare",
+      "visibility": "public",
+      "size": 10737418240,
+      "virtual_size": 10737418240,
+      "status": "active",
+      "checksum": "ae9e269b6dd51f904ff0b399e4da8e12",
+      "protected": false,
+      "min_ram": 0,
+      "min_disk": 0,
+      "owner": "9d8bd63e817f47b68c0e8c96ec878b05",
+      "os_hidden": false,
+      "os_hash_algo": "sha512",
+      "os_hash_value": "6e561911971674ac4dde262e4e857fd2836d093fb5e60f1c23f47d74393ce0a21e7dc1fa7ff6a92339c85d052c5432513fbaa29a54c18e85b60e9f2a51ada86e",
+      "id": "3260a69a-8353-4ac4-8d14-129118674fc7",
+      "created_at": "2025-04-11T08:49:37Z",
+      "updated_at": "2025-04-11T09:01:24Z",
+      "locations": [
+        {
+          "url": "rbd://068c0af1-e528-4a0d-bb70-78fea8cb94c4/images/3260a69a-8353-4ac4-8d14-129118674fc7/snap",
+          "metadata": {
+            "store": "rbd"
+          }
+        }
+      ],
+      "tags": [],
+      "self": "/v2/images/3260a69a-8353-4ac4-8d14-129118674fc7",
+      "file": "/v2/images/3260a69a-8353-4ac4-8d14-129118674fc7/file",
+      "schema": "/v2/schemas/image",
+      "stores": "rbd"
+    },
+    {
+      "architecture": "x86_64",
+      "cpu_arch": "x86_64",
+      "hw_firmware_type": "uefi",
+      "hw_machine_type": "q35",
+      "os_admin_user": "debian",
+      "os_distro": "debian",
+      "os_type": "linux",
+      "os_version": "12",
+      "owner_specified.openstack.object": "images/debian-12",
+      "owner_specified.openstack.sha256": "58b713eb7b0ec9cc090a13db2c0593c51ab5c83fc712815683f5f67130e9ed73",
+      "owner_specified.openstack.src_file": "debian-12-genericcloud-amd64-20250112-1990.raw.zst",
+      "name": "debian-12",
+      "disk_format": "raw",
+      "container_format": "bare",
+      "visibility": "public",
+      "size": 3221225472,
+      "virtual_size": 3221225472,
+      "status": "active",
+      "checksum": "37747976be1824a936fb756896676307",
+      "protected": false,
+      "min_ram": 0,
+      "min_disk": 0,
+      "owner": "9d8bd63e817f47b68c0e8c96ec878b05",
+      "os_hidden": false,
+      "os_hash_algo": "sha512",
+      "os_hash_value": "0ec160db8f12da89260850498bdb4b79bf89d786a9b132c9d2ec252e1f53cb5c2440ae2b8441a0b3dfc2ce1209de5eeb3cd83cbb3dd5c1adf63e013b1ec384f7",
+      "id": "07c3551f-0145-4431-a9b1-a97bc334f304",
+      "created_at": "2025-04-11T08:45:59Z",
+      "updated_at": "2025-04-11T08:49:35Z",
+      "locations": [
+        {
+          "url": "rbd://068c0af1-e528-4a0d-bb70-78fea8cb94c4/images/07c3551f-0145-4431-a9b1-a97bc334f304/snap",
+          "metadata": {
+            "store": "rbd"
+          }
+        }
+      ],
+      "tags": [],
+      "self": "/v2/images/07c3551f-0145-4431-a9b1-a97bc334f304",
+      "file": "/v2/images/07c3551f-0145-4431-a9b1-a97bc334f304/file",
+      "schema": "/v2/schemas/image",
+      "stores": "rbd"
+    },
+    {
+      "architecture": "x86_64",
+      "cpu_arch": "x86_64",
+      "hw_firmware_type": "uefi",
+      "hw_machine_type": "q35",
+      "os_admin_user": "ubuntu",
+      "os_distro": "ubuntu",
+      "os_type": "linux",
+      "os_version": "24.04",
+      "owner_specified.openstack.object": "images/ubuntu-noble",
+      "owner_specified.openstack.sha256": "cb0ba1e5a579188fabab89a6745891ce8752aef926ffa70ec59b8570fbb7725e",
+      "owner_specified.openstack.src_file": "ubuntu-noble-server-cloudimg-amd64-20250115.raw.zst",
+      "name": "ubuntu-noble",
+      "disk_format": "raw",
+      "container_format": "bare",
+      "visibility": "public",
+      "size": 3758096384,
+      "virtual_size": 3758096384,
+      "status": "active",
+      "checksum": "f6b37f692fa45c86217954dfc106b89c",
+      "protected": false,
+      "min_ram": 0,
+      "min_disk": 0,
+      "owner": "9d8bd63e817f47b68c0e8c96ec878b05",
+      "os_hidden": false,
+      "os_hash_algo": "sha512",
+      "os_hash_value": "14927f2a4e0d58aff212217e1f5843fc0892218c68175baad9650af7ccc562d33a178135d1b7f120d46d76c3a7cfdebad8cedbd2c1cadc3d80361a492d2ddd2f",
+      "id": "40872b25-fc4f-43e3-90c6-0c31c23b9c7a",
+      "created_at": "2025-04-11T08:41:58Z",
+      "updated_at": "2025-04-11T08:45:57Z",
+      "locations": [
+        {
+          "url": "rbd://068c0af1-e528-4a0d-bb70-78fea8cb94c4/images/40872b25-fc4f-43e3-90c6-0c31c23b9c7a/snap",
+          "metadata": {
+            "store": "rbd"
+          }
+        }
+      ],
+      "tags": [],
+      "self": "/v2/images/40872b25-fc4f-43e3-90c6-0c31c23b9c7a",
+      "file": "/v2/images/40872b25-fc4f-43e3-90c6-0c31c23b9c7a/file",
+      "schema": "/v2/schemas/image",
+      "stores": "rbd"
+    },
+    {
+      "owner_specified.openstack.object": "images/virtio-win-0.1.266.iso",
+      "owner_specified.openstack.sha256": "57b0f6dc8dc92dc2ae8621f8b1bfbd8a873de9bedc788c4c4b305ea28acc77cd",
+      "owner_specified.openstack.src_file": "virtio-win-0.1.266.iso.zst",
+      "name": "virtio-win-0.1.266.iso",
+      "disk_format": "iso",
+      "container_format": "bare",
+      "visibility": "public",
+      "size": 724434944,
+      "virtual_size": 724434944,
+      "status": "active",
+      "checksum": "53347b4ff5931f0525b9420823a1123b",
+      "protected": false,
+      "min_ram": 0,
+      "min_disk": 0,
+      "owner": "9d8bd63e817f47b68c0e8c96ec878b05",
+      "os_hidden": false,
+      "os_hash_algo": "sha512",
+      "os_hash_value": "13b5d4f9ef187f1212ea56c61a6f204576d5976ba0b29abf3c11b72e76a4020132c22cfd7c0c3765bc0794b3a03008bbf18930a3027ef29ebe54949f4de2a08d",
+      "id": "3671ba12-99ec-42b0-83e5-ff0026ddcf65",
+      "created_at": "2025-04-11T08:41:07Z",
+      "updated_at": "2025-04-11T08:41:56Z",
+      "locations": [
+        {
+          "url": "rbd://068c0af1-e528-4a0d-bb70-78fea8cb94c4/images/3671ba12-99ec-42b0-83e5-ff0026ddcf65/snap",
+          "metadata": {
+            "store": "rbd"
+          }
+        }
+      ],
+      "tags": [],
+      "self": "/v2/images/3671ba12-99ec-42b0-83e5-ff0026ddcf65",
+      "file": "/v2/images/3671ba12-99ec-42b0-83e5-ff0026ddcf65/file",
+      "schema": "/v2/schemas/image",
+      "stores": "rbd"
+    },
+    {
+      "architecture": "x86_64",
+      "cpu_arch": "x86_64",
+      "os_distro": "cirros",
+      "os_type": "linux",
+      "owner_specified.openstack.object": "images/boot-stress2",
+      "owner_specified.openstack.sha256": "d4a7538021f114492e04b5d40662e5c183d93fe979e50f8165bdee4d4dd2a328",
+      "owner_specified.openstack.src_file": "boot-stress2.img",
+      "name": "boot-stress2",
+      "disk_format": "qcow2",
+      "container_format": "bare",
+      "visibility": "public",
+      "size": 20905984,
+      "virtual_size": 1073741824,
+      "status": "active",
+      "checksum": "3a5cbcf23a0f728ec0202fd91f0042df",
+      "protected": false,
+      "min_ram": 0,
+      "min_disk": 0,
+      "owner": "9d8bd63e817f47b68c0e8c96ec878b05",
+      "os_hidden": false,
+      "os_hash_algo": "sha512",
+      "os_hash_value": "6761e51385988915064e5fffa36c1bd67bb8e9a7bc3dae798e1643b712d1b38739e0e98c7521c64ebb99d7e7bbfe41fe033879dd68f0e91db2837fcea70b22c2",
+      "id": "83313313-cd39-409a-9fa6-88ee128e4051",
+      "created_at": "2025-04-11T08:41:02Z",
+      "updated_at": "2025-04-11T08:41:05Z",
+      "locations": [
+        {
+          "url": "rbd://068c0af1-e528-4a0d-bb70-78fea8cb94c4/images/83313313-cd39-409a-9fa6-88ee128e4051/snap",
+          "metadata": {
+            "store": "rbd"
+          }
+        }
+      ],
+      "tags": [],
+      "self": "/v2/images/83313313-cd39-409a-9fa6-88ee128e4051",
+      "file": "/v2/images/83313313-cd39-409a-9fa6-88ee128e4051/file",
+      "schema": "/v2/schemas/image",
+      "stores": "rbd"
+    },
+    {
+      "architecture": "x86_64",
+      "cpu_arch": "x86_64",
+      "os_distro": "cirros",
+      "os_type": "linux",
+      "owner_specified.openstack.object": "images/cirros",
+      "owner_specified.openstack.sha256": "7d6355852aeb6dbcd191bcda7cd74f1536cfe5cbf8a10495a7283a8396e4b75b",
+      "owner_specified.openstack.src_file": "cirros-0.6.3-x86_64-disk.img",
+      "name": "cirros",
+      "disk_format": "qcow2",
+      "container_format": "bare",
+      "visibility": "public",
+      "size": 21692416,
+      "virtual_size": 117440512,
+      "status": "active",
+      "checksum": "87617e24a5e30cb3b87fda8c0764838f",
+      "protected": false,
+      "min_ram": 0,
+      "min_disk": 0,
+      "owner": "9d8bd63e817f47b68c0e8c96ec878b05",
+      "os_hidden": false,
+      "os_hash_algo": "sha512",
+      "os_hash_value": "9a9bce0083a00939ec17c11febbfc767aa211aaa54f51e75c5a8b271a9b5637c77205a518b7a2007cb391d23cceb01e0e4e8d64832317151bc85b734b92a7be0",
+      "id": "c3819934-9c49-4e3e-b1e8-482ea1151cb4",
+      "created_at": "2025-04-11T08:40:56Z",
+      "updated_at": "2025-04-11T08:41:00Z",
+      "locations": [
+        {
+          "url": "rbd://068c0af1-e528-4a0d-bb70-78fea8cb94c4/images/c3819934-9c49-4e3e-b1e8-482ea1151cb4/snap",
+          "metadata": {
+            "store": "rbd"
+          }
+        }
+      ],
+      "tags": [],
+      "self": "/v2/images/c3819934-9c49-4e3e-b1e8-482ea1151cb4",
+      "file": "/v2/images/c3819934-9c49-4e3e-b1e8-482ea1151cb4/file",
+      "schema": "/v2/schemas/image",
+      "stores": "rbd"
+    }
+  ],
+  "first": "/v2/images",
+  "schema": "/v2/schemas/images"
+}

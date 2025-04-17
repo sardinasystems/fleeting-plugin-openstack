@@ -75,6 +75,7 @@ type ImageProperties struct {
 
 type Client interface {
 	GetImageProperties(ctx context.Context, imageRef string) (*ImageProperties, error)
+	GetImageByName(ctx context.Context, imageName string) (string, *ImageProperties, error)
 	ShowServerConsoleOutput(ctx context.Context, serverId string) (string, error)
 	GetServer(ctx context.Context, serverId string) (*servers.Server, error)
 	ListServers(ctx context.Context) ([]servers.Server, error)
@@ -253,6 +254,34 @@ func (c *client) GetImageProperties(ctx context.Context, imageRef string) (*Imag
 	}
 
 	return out, nil
+}
+
+func (c *client) GetImageByName(ctx context.Context, imageName string) (string, *ImageProperties, error) {
+	page, err := images.List(c.image, images.ListOpts{Name: imageName}).AllPages(ctx)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to list images: %w", err)
+	}
+
+	imgs, err := images.ExtractImages(page)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to parse images: %w", err)
+	}
+
+	if len(imgs) == 0 {
+		err = gophercloud.ErrResourceNotFound{Name: imageName, ResourceType: "image"}
+		return "", nil, err
+	} else if len(imgs) > 1 {
+		err = gophercloud.ErrMultipleResourcesFound{Name: imageName, Count: len(imgs), ResourceType: "image"}
+		return "", nil, err
+	}
+
+	out := new(ImageProperties)
+	err = mapstructure.Decode(imgs[0].Properties, out)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to parse properties: %w", err)
+	}
+
+	return imgs[0].ID, out, nil
 }
 
 func (c *client) ShowServerConsoleOutput(ctx context.Context, serverId string) (string, error) {
