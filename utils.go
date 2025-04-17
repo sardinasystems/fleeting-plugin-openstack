@@ -23,6 +23,9 @@ type ExtCreateOpts struct {
 	Description string `json:"description,omitempty"`
 	KeyName     string `json:"key_name,omitempty"`
 
+	// search for imageRef by name each time
+	ImageName string `json:"image_name,omitempty"`
+
 	// annotation overrides
 	Networks       []servers.Network          `json:"networks,omitempty"`
 	SecurityGroups []string                   `json:"security_groups,omitempty"`

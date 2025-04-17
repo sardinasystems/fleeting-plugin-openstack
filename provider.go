@@ -33,7 +33,7 @@ type InstanceGroup struct {
 	client          openstackclient.Client
 	settings        provider.Settings
 	log             hclog.Logger
-	imgProps        *openstackclient.ImageProperties
+	imgProps        atomic.Pointer[openstackclient.ImageProperties]
 	sshPubKey       string
 	instanceCounter atomic.Int32
 }
@@ -66,7 +66,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 			return provider.ProviderInfo{}, err
 		}
 
-		g.imgProps = imgProps
+		g.imgProps.Store(imgProps)
 	}
 
 	// log.With("creds", settings, "image", g.imgProps).Info("settings 1")
@@ -242,6 +242,18 @@ func (g *InstanceGroup) createInstance(ctx context.Context) (string, error) {
 		}
 	}
 
+	if spec.ImageName != "" {
+		imageRef, imgProps, err := g.client.GetImageByName(ctx, spec.ImageName)
+		if err != nil {
+			return "", err
+		}
+
+		spec.ImageRef = imageRef
+		g.imgProps.Store(imgProps)
+
+		g.log.Debug("Image resolved by name", "image_name", spec.ImageName, "image_ref", spec.ImageRef)
+	}
+
 	srv, err := g.client.CreateServer(ctx, spec, hintOpts)
 	if err != nil {
 		return "", err
@@ -285,8 +297,25 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 	}
 	info.Protocol = provider.ProtocolSSH
 
-	if g.imgProps != nil {
-		switch g.imgProps.OSType {
+	imgProps := g.imgProps.Load()
+
+	// XXX TODO: srv.Image in many conditions may be empty, so you should go and check volume meta.
+	//           but for simplicity we just keep the last image and assume the props we want keeps the same...
+	// if imgProps == nil && srv.Image != nil {
+	// 	image := new(images.Image)
+	// 	err = mapstructure.Decode(srv.Image, image)
+	// 	if err != nil {
+	// 		return provider.ConnectInfo{}, err
+	// 	}
+	//
+	// 	imgProps, err = g.client.GetImageProperties(ctx, image.ID)
+	// 	if err != nil {
+	// 		return provider.ConnectInfo{}, err
+	// 	}
+	// }
+
+	if imgProps != nil {
+		switch imgProps.OSType {
 		case "", "linux":
 			info.Protocol = provider.ProtocolSSH
 			info.OS = "linux"
@@ -294,14 +323,14 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 		case "windows":
 			g.log.Warn("Windows not really supported by the plugin.")
 			info.Protocol = provider.ProtocolWinRM
-			info.OS = g.imgProps.OSType
+			info.OS = imgProps.OSType
 
 		default:
-			g.log.Warn("Unknown image os_type", "os_type", g.imgProps.OSType)
-			info.OS = g.imgProps.OSType
+			g.log.Warn("Unknown image os_type", "os_type", imgProps.OSType)
+			info.OS = imgProps.OSType
 		}
 
-		switch g.imgProps.Architecture {
+		switch imgProps.Architecture {
 		case "", "x86_64":
 			info.Arch = "amd64"
 
@@ -309,7 +338,7 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (pro
 			info.Arch = "arm64"
 
 		default:
-			g.log.Warn("Unknown image arch", "arch", g.imgProps.Architecture)
+			g.log.Warn("Unknown image arch", "arch", imgProps.Architecture)
 		}
 
 	} else {
