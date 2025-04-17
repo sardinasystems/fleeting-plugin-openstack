@@ -71,7 +71,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 
 	// log.With("creds", settings, "image", g.imgProps).Info("settings 1")
 
-	if !g.UseIgnition && !settings.ConnectorConfig.UseStaticCredentials {
+	if !g.UseIgnition && !settings.UseStaticCredentials {
 		return provider.ProviderInfo{}, fmt.Errorf("only static credentials supported in Cloud-Init mode")
 	}
 
