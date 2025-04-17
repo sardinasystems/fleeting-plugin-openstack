@@ -25,14 +25,14 @@ func (g *InstanceGroup) initSSHKey(_ context.Context, log hclog.Logger, settings
 	var key PrivPub
 	var err error
 
-	if len(settings.ConnectorConfig.Key) == 0 {
+	if len(settings.Key) == 0 {
 		log.Info("Generating dynamic SSH key...")
 
 		key, err = rsa.GenerateKey(rand.Reader, 4096)
 		if err != nil {
 			return fmt.Errorf("generating private key: %w", err)
 		}
-		settings.ConnectorConfig.Key = pem.EncodeToMemory(
+		settings.Key = pem.EncodeToMemory(
 			&pem.Block{
 				Type:  "RSA PRIVATE KEY",
 				Bytes: x509.MarshalPKCS1PrivateKey(key.(*rsa.PrivateKey)),
@@ -43,7 +43,7 @@ func (g *InstanceGroup) initSSHKey(_ context.Context, log hclog.Logger, settings
 	} else {
 		var ok bool
 
-		priv, err := ssh.ParseRawPrivateKey(settings.ConnectorConfig.Key)
+		priv, err := ssh.ParseRawPrivateKey(settings.Key)
 		if err != nil {
 			return fmt.Errorf("reading private key: %w", err)
 		}
@@ -66,6 +66,7 @@ func (g *InstanceGroup) initSSHKey(_ context.Context, log hclog.Logger, settings
 	imgProps := g.imgProps.Load()
 	if imgProps != nil {
 		if imgProps.OSAdminUser == "" && settings.Username == "" {
+			// nolint:staticcheck
 			return fmt.Errorf("image properties 'os_admin_user' and 'runners.autoscaler.connector_config.username' missing. Ensure one is set.")
 		}
 		if imgProps.OSAdminUser != "" && settings.Username == "" {

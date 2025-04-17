@@ -57,7 +57,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 
 	_, err = g.ServerSpec.ToServerCreateMap()
 	if err != nil {
-		return provider.ProviderInfo{}, fmt.Errorf("Failed to check server_spec: %w", err)
+		return provider.ProviderInfo{}, fmt.Errorf("failed to check server_spec: %w", err)
 	}
 
 	if g.ServerSpec.ImageRef != "" {
@@ -72,7 +72,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	// log.With("creds", settings, "image", g.imgProps).Info("settings 1")
 
 	if !g.UseIgnition && !settings.ConnectorConfig.UseStaticCredentials {
-		return provider.ProviderInfo{}, fmt.Errorf("Only static credentials supported in Cloud-Init mode.")
+		return provider.ProviderInfo{}, fmt.Errorf("only static credentials supported in Cloud-Init mode")
 	}
 
 	if g.UseIgnition {
@@ -87,7 +87,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	if g.BootTimeS != "" {
 		g.BootTime, err = time.ParseDuration(g.BootTimeS)
 		if err != nil {
-			return provider.ProviderInfo{}, fmt.Errorf("Failed to parse boot_time: %w", err)
+			return provider.ProviderInfo{}, fmt.Errorf("failed to parse boot_time: %w", err)
 		}
 	}
 
@@ -265,7 +265,7 @@ func (g *InstanceGroup) createInstance(ctx context.Context) (string, error) {
 func (g *InstanceGroup) ConnectInfo(ctx context.Context, instanceID string) (provider.ConnectInfo, error) {
 	srv, err := g.client.GetServer(ctx, instanceID)
 	if err != nil {
-		return provider.ConnectInfo{}, fmt.Errorf("Failed to get server %s: %w", instanceID, err)
+		return provider.ConnectInfo{}, fmt.Errorf("failed to get server %s: %w", instanceID, err)
 	}
 
 	// g.log.Debug("Server info", "srv", srv)
