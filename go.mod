@@ -14,7 +14,7 @@ require (
 	github.com/gophercloud/utils/v2 v2.0.0-20250505075637-4ac8ddd08bb6
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/jinzhu/copier v0.4.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	gitlab.com/gitlab-org/fleeting/fleeting v0.0.0-20250425145049-7f673e7c5598
 	golang.org/x/crypto v0.39.0
 )
