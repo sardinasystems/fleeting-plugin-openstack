@@ -10,6 +10,7 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/flavors"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
 	"github.com/gophercloud/gophercloud/v2/openstack/config"
 	"github.com/gophercloud/gophercloud/v2/openstack/config/clouds"
@@ -76,6 +77,7 @@ type ImageProperties struct {
 type Client interface {
 	GetImageProperties(ctx context.Context, imageRef string) (*ImageProperties, error)
 	GetImageByName(ctx context.Context, imageName string) (string, *ImageProperties, error)
+	GetFlavorByName(ctx context.Context, flavorName string) (string, error)
 	ShowServerConsoleOutput(ctx context.Context, serverId string) (string, error)
 	GetServer(ctx context.Context, serverId string) (*servers.Server, error)
 	ListServers(ctx context.Context) ([]servers.Server, error)
@@ -282,6 +284,29 @@ func (c *client) GetImageByName(ctx context.Context, imageName string) (string, 
 	}
 
 	return imgs[0].ID, out, nil
+}
+
+func (c *client) GetFlavorByName(ctx context.Context, flavorName string) (string, error) {
+	// Nova API doesn't support filtering by Name, so we have to do that on our end
+	page, err := flavors.ListDetail(c.compute, nil).AllPages(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to list flavors: %w", err)
+	}
+
+	flavs, err := flavors.ExtractFlavors(page)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse flavors: %w", err)
+	}
+
+	for _, flav := range flavs {
+		if flav.Name == flavorName {
+			// Flavor Names are unique per Nova db schema, so we can immediately return on a match
+			return flav.ID, nil
+		}
+	}
+
+	err = gophercloud.ErrResourceNotFound{Name: flavorName, ResourceType: "flavor"}
+	return "", err
 }
 
 func (c *client) ShowServerConsoleOutput(ctx context.Context, serverId string) (string, error) {

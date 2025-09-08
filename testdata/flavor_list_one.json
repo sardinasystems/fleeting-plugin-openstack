@@ -1,0 +1,26 @@
+{
+    "flavors": [
+        {
+            "id": "113",
+            "name": "S",
+            "ram": 2048,
+            "disk": 15,
+            "swap": "",
+            "OS-FLV-EXT-DATA:ephemeral": 0,
+            "OS-FLV-DISABLED:disabled": false,
+            "vcpus": 1,
+            "os-flavor-access:is_public": true,
+            "rxtx_factor": 1.0,
+            "links": [
+                {
+                    "rel": "self",
+                    "href": "https://nova.example.org:8774/v2.1/743713f9aba64e4e927b68cb233d8d27/flavors/113"
+                },
+                {
+                    "rel": "bookmark",
+                    "href": "https://nova.example.org:8774/743713f9aba64e4e927b68cb233d8d27/flavors/113"
+                }
+            ]
+        }
+    ]
+}

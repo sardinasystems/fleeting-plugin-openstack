@@ -85,3 +85,44 @@ func TestGetImageByName_Many(t *testing.T) {
 	_, _, err = client.GetImageByName(ctx, "flatcar")
 	assert.ErrorIs(err, gophercloud.ErrMultipleResourcesFound{Name: "flatcar", Count: 8, ResourceType: "image"})
 }
+
+func TestGetFlavorByName(t *testing.T) {
+	assert := assert.New(t)
+
+	flav, err := os.ReadFile("../../testdata/flavor_list_one.json")
+	require.NoError(t, err)
+
+	testhelper.SetupHTTP()
+	defer testhelper.TeardownHTTP()
+
+	testhelper.ServeFile(t, "", "", "application/json", string(flav))
+
+	client := &client{
+		compute: thclient.ServiceClient(),
+	}
+
+	ctx := context.TODO()
+	flavorRef, err := client.GetFlavorByName(ctx, "S")
+	assert.NoError(err)
+	assert.Equal("113", flavorRef)
+}
+
+func TestGetFlavorByName_None(t *testing.T) {
+	assert := assert.New(t)
+
+	flav, err := os.ReadFile("../../testdata/flavor_list_none.json")
+	require.NoError(t, err)
+
+	testhelper.SetupHTTP()
+	defer testhelper.TeardownHTTP()
+
+	testhelper.ServeFile(t, "", "", "application/json", string(flav))
+
+	client := &client{
+		compute: thclient.ServiceClient(),
+	}
+
+	ctx := context.TODO()
+	_, err = client.GetFlavorByName(ctx, "S")
+	assert.ErrorIs(err, gophercloud.ErrResourceNotFound{Name: "S", ResourceType: "flavor"})
+}

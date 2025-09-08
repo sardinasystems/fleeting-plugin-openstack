@@ -132,6 +132,7 @@ tags = ["GitLab", "CI", "Docker", "Scaling"]
 imageRef = "d5460af5-83f3-47d7-9c4f-80294c66b267"                       # Flatcar Linux (ID)
 image_name = "flatcar"                                                  # Resolve imageRef. If set, each time a new VM should be created, the imageRef will be resolved.
 flavorRef = "4e9d4fa4-a703-4850-8bc1-58b5e139ab57"                      # xlarge flavor
+flavor_name = "XL"                                                      # Resolve flavorRef. If set, each time a new VM should be created, the flavorRef will be resolved.
 # key_name = "ci-admin"                                                 # SSH public key for worker nodes
 networks = [ { uuid = "f05e7f64-9e0f-4c5c-acb0-b636000d7301" } ]        # tenant network
 security_groups = [ "cee22d91-bb9a-455d-be88-e911d3cb066a" ]            # allow SSH ingress from tenant network
