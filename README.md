@@ -21,6 +21,8 @@ The following parameters are supported:
 | `boot_time`           | string | Optional. Maximum wait time for instance to boot up. During that time plugin check Cloud-Init signatures. |
 | `use_ignition`        | string | Enable Fedora CoreOS / Flatcar Linux Ignition support |
 | `server_spec`         | object | Server spec used to create instances. See: [Compute API](https://docs.openstack.org/api-ref/compute/#create-server) |
+| `volume_type`         | string | Optional. Volume type name, must be used in conjunction with `volume_size` |
+| `volume_size`         | int    | Optional. Size of disk volume in gigabytes, must be used in conjunction with `volume_type` |
 
 
 ### Default connector config

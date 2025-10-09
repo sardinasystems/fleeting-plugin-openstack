@@ -11,6 +11,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
+	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v2/volumes"
 	"github.com/gophercloud/gophercloud/v2/openstack/config"
 	"github.com/gophercloud/gophercloud/v2/openstack/config/clouds"
 	"github.com/gophercloud/gophercloud/v2/openstack/image/v2/images"
@@ -81,11 +82,15 @@ type Client interface {
 	ListServers(ctx context.Context) ([]servers.Server, error)
 	CreateServer(ctx context.Context, spec servers.CreateOptsBuilder, hintOpts servers.SchedulerHintOptsBuilder) (*servers.Server, error)
 	DeleteServer(ctx context.Context, serverId string) error
+	CreateVolume(ctx context.Context, opts volumes.CreateOpts) (*volumes.Volume, error)
+	GetVolume(ctx context.Context, volumeId string) (*volumes.Volume, error)
+	WaitForVolumeStatus(ctx context.Context, volumeId string, status string) error
 }
 
 type client struct {
-	compute *gophercloud.ServiceClient
-	image   *gophercloud.ServiceClient
+	compute 	 *gophercloud.ServiceClient
+	image   	 *gophercloud.ServiceClient
+	blockStorage *gophercloud.ServiceClient
 }
 
 func New(ctx context.Context, authConfig AuthConfig, cloudOpts *CloudOpts) (Client, error) {
@@ -118,10 +123,15 @@ func New(ctx context.Context, authConfig AuthConfig, cloudOpts *CloudOpts) (Clie
 	if err != nil {
 		return nil, err
 	}
+	blockStorageClient, err := openstack.NewBlockStorageV3(providerClient, endpointOps)
+	if err != nil {
+		return nil, err
+	}
 
 	return &client{
 		compute: computeClient,
 		image:   imageClient,
+		blockStorage: blockStorageClient,
 	}, nil
 }
 
@@ -314,4 +324,16 @@ func (c *client) CreateServer(ctx context.Context, spec servers.CreateOptsBuilde
 
 func (c *client) DeleteServer(ctx context.Context, serverId string) error {
 	return servers.Delete(ctx, c.compute, serverId).ExtractErr()
+}
+
+func (c *client) CreateVolume(ctx context.Context, opts volumes.CreateOpts) (*volumes.Volume, error) {
+	return volumes.Create(ctx, c.blockStorage, opts, nil).Extract()
+}
+
+func (c *client) GetVolume(ctx context.Context, volumeId string) (*volumes.Volume, error) {
+	return volumes.Get(ctx, c.blockStorage, volumeId).Extract()
+}
+
+func (c *client) WaitForVolumeStatus(ctx context.Context, volumeId string, status string) error {
+	return volumes.WaitForStatus(ctx, c.blockStorage, volumeId, status)
 }
