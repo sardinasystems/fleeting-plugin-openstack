@@ -10,7 +10,7 @@ require (
 	github.com/coreos/ignition/v2 v2.21.0
 	github.com/coreos/vcontext v0.0.0-20231102161604-685dc7299dc5
 	github.com/go-viper/mapstructure/v2 v2.2.1
-	github.com/gophercloud/gophercloud/v2 v2.7.0
+	github.com/gophercloud/gophercloud/v2 v2.9.0
 	github.com/gophercloud/utils/v2 v2.0.0-20250505075637-4ac8ddd08bb6
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/jinzhu/copier v0.4.0
