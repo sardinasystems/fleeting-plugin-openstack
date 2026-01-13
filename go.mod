@@ -9,7 +9,7 @@ require (
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/coreos/ignition/v2 v2.21.0
 	github.com/coreos/vcontext v0.0.0-20231102161604-685dc7299dc5
-	github.com/go-viper/mapstructure/v2 v2.2.1
+	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/gophercloud/gophercloud/v2 v2.7.0
 	github.com/gophercloud/utils/v2 v2.0.0-20250505075637-4ac8ddd08bb6
 	github.com/hashicorp/go-hclog v1.6.3
