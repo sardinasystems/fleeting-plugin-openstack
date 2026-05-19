@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -105,14 +106,21 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 }
 
 func (g *InstanceGroup) Update(ctx context.Context, update func(instance string, state provider.State)) error {
-
 	instances, err := g.getInstances(ctx)
 	if err != nil {
 		return err
 	}
 
 	var reterr error
+	var cleanup []string
+
 	for _, srv := range instances {
+		// VMs in ERROR state are unrecoverable, clean them up
+		if srv.Status == "ERROR" {
+			cleanup = append(cleanup, srv.ID)
+			continue
+		}
+
 		state := provider.StateCreating
 		lg := g.log.With("server_id", srv.ID, "created", srv.Created, "status", srv.Status)
 
@@ -122,11 +130,6 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 
 		case "DELETED", "SHUTOFF", "UNKNOWN":
 			state = provider.StateDeleting
-
-		case "ERROR":
-			// unsure if that's proper way...
-			lg.Warn("Instance is in ERROR state. Marking as a timeout.")
-			state = provider.StateTimeout
 
 		case "ACTIVE":
 			if srv.Created.Add(g.BootTime).Before(time.Now()) {
@@ -152,6 +155,11 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(instance string,
 		}
 
 		update(srv.ID, state)
+	}
+
+	if len(cleanup) > 0 {
+		_, err := g.Decrease(ctx, cleanup)
+		g.log.Warn("Removed instances in ERROR state", "instances", strings.Join(cleanup, ","), "err", err)
 	}
 
 	return reterr
